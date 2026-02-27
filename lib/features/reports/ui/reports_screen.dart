@@ -22,6 +22,15 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
   void initState() {
     super.initState();
     _load();
+    // Auto-refresh every 5 seconds
+    Future.delayed(const Duration(seconds: 5), _autoRefresh);
+  }
+
+  void _autoRefresh() {
+    if (mounted) {
+      _load();
+      Future.delayed(const Duration(seconds: 5), _autoRefresh);
+    }
   }
 
   DateTimeRange get _range {

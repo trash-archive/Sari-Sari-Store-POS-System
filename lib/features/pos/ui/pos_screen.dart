@@ -43,17 +43,24 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.all(8),
-            child: TextField(
-              controller: _searchCtrl,
-              decoration: const InputDecoration(
-                hintText: 'Search products...',
-                prefixIcon: Icon(Icons.search),
-                isDense: true,
-              ),
-              onChanged: (v) => setState(() => _searchQuery = v),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchCtrl,
+                    decoration: const InputDecoration(
+                      hintText: 'Search products...',
+                      prefixIcon: Icon(Icons.search),
+                      isDense: true,
+                    ),
+                    onChanged: (v) => setState(() => _searchQuery = v),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _buildCategoryButton(),
+              ],
             ),
           ),
-          _buildCategoryFilter(),
           Expanded(
             child: productsAsync.when(
               data: (products) {
@@ -84,39 +91,69 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     );
   }
 
-  Widget _buildCategoryFilter() {
+  Widget _buildCategoryButton() {
     final categoriesAsync = ref.watch(categoriesProvider);
     return categoriesAsync.when(
       loading: () => const SizedBox(),
       error: (_, __) => const SizedBox(),
       data: (categories) {
         if (categories.isEmpty) return const SizedBox();
-        return Container(
-          height: 50,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: FilterChip(
-                  label: const Text('All'),
-                  selected: _selectedCategoryId == null,
-                  onSelected: (v) => setState(() => _selectedCategoryId = null),
-                ),
-              ),
-              ...categories.map((cat) => Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: FilterChip(
-                  label: Text(cat.name),
-                  selected: _selectedCategoryId == cat.id,
-                  onSelected: (v) => setState(() => _selectedCategoryId = cat.id),
-                ),
-              )),
-            ],
-          ),
+        return IconButton(
+          icon: const Icon(Icons.filter_list),
+          tooltip: 'Filter by category',
+          onPressed: () => _showCategoryPicker(categories),
         );
       },
+    );
+  }
+
+  void _showCategoryPicker(List<Category> categories) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                const Text('Select Category', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.all_inclusive),
+                  title: const Text('All Categories'),
+                  selected: _selectedCategoryId == null,
+                  onTap: () {
+                    setState(() => _selectedCategoryId = null);
+                    Navigator.pop(ctx);
+                  },
+                ),
+                ...categories.map((cat) => ListTile(
+                  leading: const Icon(Icons.category),
+                  title: Text(cat.name),
+                  selected: _selectedCategoryId == cat.id,
+                  onTap: () {
+                    setState(() => _selectedCategoryId = cat.id);
+                    Navigator.pop(ctx);
+                  },
+                )),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -269,6 +306,7 @@ class _CartSheetState extends ConsumerState<CartSheet> {
   final _discountCtrl = TextEditingController();
   int? _cashReceivedCents;
   int? _changeCents;
+  String? _cashPayerName;
 
   @override
   Widget build(BuildContext context) {
@@ -383,7 +421,7 @@ class _CartSheetState extends ConsumerState<CartSheet> {
     final invoice = await ref.read(cartProvider.notifier).checkout(
       type: type,
       customerId: customerId,
-      notes: _notesCtrl.text.isEmpty ? null : _notesCtrl.text,
+      notes: _cashPayerName ?? (_notesCtrl.text.isEmpty ? null : _notesCtrl.text),
       cashReceivedCents: _cashReceivedCents,
       changeCents: _changeCents,
     );
@@ -416,102 +454,114 @@ class _CartSheetState extends ConsumerState<CartSheet> {
   Future<bool?> _showCashPaymentDialog(BuildContext context) async {
     final cart = ref.read(cartProvider);
     final cashCtrl = TextEditingController();
+    final nameCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
     int changeCents = 0;
     int cashReceivedCents = 0;
 
-    final result = await showDialog<Map<String, int>?>(
+    final result = await showDialog<Map<String, dynamic>?>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           title: const Text('Cash Payment'),
-          content: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.green[50],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Total Amount:', style: TextStyle(fontSize: 12)),
-                      Text(
-                        formatCurrency(cart.totalCents),
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: cashCtrl,
-                  autofocus: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Cash Received (₱)',
-                    prefixText: '₱',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  validator: (v) {
-                    if (v?.trim().isEmpty ?? true) return 'Required';
-                    final amount = double.tryParse(v!);
-                    if (amount == null) return 'Invalid amount';
-                    final cents = (amount * 100).round();
-                    if (cents < cart.totalCents) return 'Insufficient amount';
-                    return null;
-                  },
-                  onChanged: (v) {
-                    final amount = double.tryParse(v);
-                    if (amount != null) {
-                      final cents = (amount * 100).round();
-                      setState(() {
-                        cashReceivedCents = cents;
-                        changeCents = (cents - cart.totalCents).clamp(0, 999999999);
-                      });
-                    } else {
-                      setState(() {
-                        cashReceivedCents = 0;
-                        changeCents = 0;
-                      });
-                    }
-                  },
-                ),
-                if (changeCents > 0)
-                  const SizedBox(height: 16),
-                if (changeCents > 0)
+          content: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.blue[50],
+                      color: Colors.green[50],
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Change:', style: TextStyle(fontSize: 12)),
+                        const Text('Total Amount:', style: TextStyle(fontSize: 12)),
                         Text(
-                          formatCurrency(changeCents),
+                          formatCurrency(cart.totalCents),
                           style: const TextStyle(
-                            fontSize: 20,
+                            fontSize: 24,
                             fontWeight: FontWeight.bold,
-                            color: Colors.blue,
+                            color: Colors.green,
                           ),
                         ),
                       ],
                     ),
                   ),
-              ],
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Customer Name (Optional)',
+                      prefixIcon: Icon(Icons.person),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: cashCtrl,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Cash Received (₱)',
+                      prefixText: '₱',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    validator: (v) {
+                      if (v?.trim().isEmpty ?? true) return 'Required';
+                      final amount = double.tryParse(v!);
+                      if (amount == null) return 'Invalid amount';
+                      final cents = (amount * 100).round();
+                      if (cents < cart.totalCents) return 'Insufficient amount';
+                      return null;
+                    },
+                    onChanged: (v) {
+                      final amount = double.tryParse(v);
+                      if (amount != null) {
+                        final cents = (amount * 100).round();
+                        setState(() {
+                          cashReceivedCents = cents;
+                          changeCents = (cents - cart.totalCents).clamp(0, 999999999);
+                        });
+                      } else {
+                        setState(() {
+                          cashReceivedCents = 0;
+                          changeCents = 0;
+                        });
+                      }
+                    },
+                  ),
+                  if (changeCents > 0)
+                    const SizedBox(height: 16),
+                  if (changeCents > 0)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Change:', style: TextStyle(fontSize: 12)),
+                          Text(
+                            formatCurrency(changeCents),
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -522,7 +572,11 @@ class _CartSheetState extends ConsumerState<CartSheet> {
             ElevatedButton(
               onPressed: () {
                 if (formKey.currentState!.validate()) {
-                  Navigator.pop(ctx, {'cash': cashReceivedCents, 'change': changeCents});
+                  Navigator.pop(ctx, {
+                    'cash': cashReceivedCents,
+                    'change': changeCents,
+                    'name': nameCtrl.text.trim().isEmpty ? null : nameCtrl.text.trim(),
+                  });
                 }
               },
               child: const Text('Confirm Payment'),
@@ -535,6 +589,7 @@ class _CartSheetState extends ConsumerState<CartSheet> {
     if (result != null) {
       _cashReceivedCents = result['cash'];
       _changeCents = result['change'];
+      _cashPayerName = result['name'];
       return true;
     }
     return false;

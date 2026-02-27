@@ -152,6 +152,13 @@ class InvoiceDetailScreen extends ConsumerWidget {
                     const Divider(),
                     _Row('TOTAL', formatCurrency(inv.totalCents),
                         bold: true, valueSize: 20),
+                    if (inv.type == 'cash' && inv.cashReceivedCents != null)
+                      const Divider(),
+                    if (inv.type == 'cash' && inv.cashReceivedCents != null)
+                      _Row('Cash Received', formatCurrency(inv.cashReceivedCents!)),
+                    if (inv.type == 'cash' && inv.changeCents != null && inv.changeCents! > 0)
+                      _Row('Change', formatCurrency(inv.changeCents!),
+                          valueColor: Colors.blue),
                   ],
                 ),
               ],

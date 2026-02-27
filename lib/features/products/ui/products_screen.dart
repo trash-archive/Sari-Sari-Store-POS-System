@@ -69,27 +69,34 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen>
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-            child: TextField(
-              controller: _searchCtrl,
-              decoration: InputDecoration(
-                hintText: 'Search products...',
-                prefixIcon: const Icon(Icons.search),
-                isDense: true,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchCtrl.clear();
-                          setState(() => _searchQuery = '');
-                        },
-                      )
-                    : null,
-              ),
-              onChanged: (v) => setState(() => _searchQuery = v),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Search products...',
+                      prefixIcon: const Icon(Icons.search),
+                      isDense: true,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _searchCtrl.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                            )
+                          : null,
+                    ),
+                    onChanged: (v) => setState(() => _searchQuery = v),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _buildCategoryButton(),
+              ],
             ),
           ),
-          _buildCategoryFilter(),
           Expanded(
             child: TabBarView(
               controller: _tabController,
@@ -110,39 +117,69 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen>
     );
   }
 
-  Widget _buildCategoryFilter() {
+  Widget _buildCategoryButton() {
     final categoriesAsync = ref.watch(categoriesProvider);
     return categoriesAsync.when(
       loading: () => const SizedBox(),
       error: (_, __) => const SizedBox(),
       data: (categories) {
         if (categories.isEmpty) return const SizedBox();
-        return Container(
-          height: 50,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: FilterChip(
-                  label: const Text('All'),
-                  selected: _selectedCategoryId == null,
-                  onSelected: (v) => setState(() => _selectedCategoryId = null),
-                ),
-              ),
-              ...categories.map((cat) => Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: FilterChip(
-                  label: Text(cat.name),
-                  selected: _selectedCategoryId == cat.id,
-                  onSelected: (v) => setState(() => _selectedCategoryId = cat.id),
-                ),
-              )),
-            ],
-          ),
+        return IconButton(
+          icon: const Icon(Icons.filter_list),
+          tooltip: 'Filter by category',
+          onPressed: () => _showCategoryPicker(categories),
         );
       },
+    );
+  }
+
+  void _showCategoryPicker(List<Category> categories) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                const Text('Select Category', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.all_inclusive),
+                  title: const Text('All Categories'),
+                  selected: _selectedCategoryId == null,
+                  onTap: () {
+                    setState(() => _selectedCategoryId = null);
+                    Navigator.pop(ctx);
+                  },
+                ),
+                ...categories.map((cat) => ListTile(
+                  leading: const Icon(Icons.category),
+                  title: Text(cat.name),
+                  selected: _selectedCategoryId == cat.id,
+                  onTap: () {
+                    setState(() => _selectedCategoryId = cat.id);
+                    Navigator.pop(ctx);
+                  },
+                )),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
