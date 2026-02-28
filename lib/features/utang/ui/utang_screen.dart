@@ -28,28 +28,31 @@ class _UtangScreenState extends ConsumerState<UtangScreen> {
     final customersAsync = ref.watch(customersProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Utang')),
+      backgroundColor: Colors.white,
+      appBar: AppBar(title: const Text('Utang', style: TextStyle(fontWeight: FontWeight.w600))),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-            child: TextField(
-              controller: _searchCtrl,
-              decoration: InputDecoration(
-                hintText: 'Search customers...',
-                prefixIcon: const Icon(Icons.search),
-                isDense: true,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                suffixIcon: _search.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchCtrl.clear();
-                          setState(() => _search = '');
-                        })
-                    : null,
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8F9FA),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
               ),
-              onChanged: (v) => setState(() => _search = v),
+              child: TextField(
+                controller: _searchCtrl,
+                decoration: const InputDecoration(
+                  hintText: 'Search customers...',
+                  hintStyle: TextStyle(color: Color(0xFF6B7280)),
+                  prefixIcon: Icon(Icons.search, color: Color(0xFF6B7280)),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  filled: false,
+                ),
+                onChanged: (v) => setState(() => _search = v),
+              ),
             ),
           ),
           customersAsync.when(
@@ -138,58 +141,117 @@ class _UtangScreenState extends ConsumerState<UtangScreen> {
                 }
 
                 return ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(8, 4, 8, 88),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
                   itemCount: filtered.length,
                   itemBuilder: (context, i) {
                     final c = filtered[i];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 3),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: c.balanceCents > 0
-                              ? Colors.red[100]
-                              : Colors.green[100],
-                          child: Text(
-                            c.name[0].toUpperCase(),
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: c.balanceCents > 0
-                                  ? Colors.red[700]
-                                  : Colors.green[700],
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.shade200),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) =>
+                                    CustomerDetailScreen(customer: c)),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 28,
+                                  backgroundColor: c.balanceCents > 0
+                                      ? Colors.red[100]
+                                      : Colors.green[100],
+                                  child: Text(
+                                    c.name[0].toUpperCase(),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 20,
+                                      color: c.balanceCents > 0
+                                          ? Colors.red[700]
+                                          : Colors.green[700],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        c.name,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 15,
+                                          color: Color(0xFF1A1A1A),
+                                        ),
+                                      ),
+                                      if (c.phone != null)
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 4),
+                                          child: Text(
+                                            c.phone!,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              color: Color(0xFF6B7280),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                if (c.balanceCents > 0)
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        formatCurrency(c.balanceCents),
+                                        style: const TextStyle(
+                                            color: Colors.red,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.red.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: const Text(
+                                          'utang',
+                                          style: TextStyle(
+                                            color: Colors.red,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                else
+                                  const Icon(Icons.check_circle,
+                                      color: Colors.green, size: 28),
+                              ],
                             ),
                           ),
-                        ),
-                        title: Text(c.name,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w600)),
-                        subtitle: c.phone != null ? Text(c.phone!) : null,
-                        trailing: c.balanceCents > 0
-                            ? Column(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.center,
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    formatCurrency(c.balanceCents),
-                                    style: const TextStyle(
-                                        color: Colors.red,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16),
-                                  ),
-                                  const Text('utang',
-                                      style: TextStyle(
-                                          color: Colors.red,
-                                          fontSize: 11)),
-                                ],
-                              )
-                            : const Icon(Icons.check_circle_outline,
-                                color: Colors.green),
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) =>
-                                  CustomerDetailScreen(customer: c)),
                         ),
                       ),
                     );

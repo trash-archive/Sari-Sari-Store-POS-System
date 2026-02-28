@@ -22,15 +22,6 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
   void initState() {
     super.initState();
     _load();
-    // Auto-refresh every 5 seconds
-    Future.delayed(const Duration(seconds: 5), _autoRefresh);
-  }
-
-  void _autoRefresh() {
-    if (mounted) {
-      _load();
-      Future.delayed(const Duration(seconds: 5), _autoRefresh);
-    }
   }
 
   DateTimeRange get _range {
@@ -111,8 +102,9 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Reports'),
+        title: const Text('Reports', style: TextStyle(fontWeight: FontWeight.w600)),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -122,8 +114,9 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
@@ -136,7 +129,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                   ])
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
+                      child: FilterChip(
                         label: Text(period.$2),
                         selected: _period == period.$1,
                         onSelected: (v) {
@@ -145,6 +138,18 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                             _load();
                           }
                         },
+                        backgroundColor: const Color(0xFFF8F9FA),
+                        selectedColor: const Color(0xFF2D5F3F),
+                        labelStyle: TextStyle(
+                          color: _period == period.$1 ? Colors.white : const Color(0xFF1A1A1A),
+                          fontWeight: FontWeight.w500,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(
+                            color: _period == period.$1 ? const Color(0xFF2D5F3F) : Colors.grey.shade300,
+                          ),
+                        ),
                       ),
                     ),
                 ],
@@ -171,13 +176,13 @@ class _ReportBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
         Text(
           '${formatDate(data.from)} – ${formatDate(data.to)}',
-          style: TextStyle(color: Colors.grey[600], fontSize: 12),
+          style: const TextStyle(color: Color(0xFF6B7280), fontSize: 12),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
 
         Row(
           children: [
@@ -242,8 +247,20 @@ class _ReportBody extends StatelessWidget {
 
         if (data.bestSellers.isNotEmpty) ...[
           _SectionTitle('Best Sellers', Icons.star_outline),
-          const SizedBox(height: 8),
-          Card(
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade200),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
             child: Column(
               children: data.bestSellers.asMap().entries.map((e) {
                 final rank = e.key + 1;
@@ -301,8 +318,20 @@ class _ReportBody extends StatelessWidget {
 
         if (data.topDebtors.isNotEmpty && data.totalUtang > 0) ...[
           _SectionTitle('Top Debtors', Icons.warning_amber_outlined),
-          const SizedBox(height: 8),
-          Card(
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade200),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
             child: Column(
               children: data.topDebtors.map((c) {
                 return ListTile(
@@ -350,9 +379,21 @@ class _KpiCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         child: wide
             ? Row(
                 children: [
@@ -361,7 +402,7 @@ class _KpiCard extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                      Text(title, style: const TextStyle(color: Color(0xFF6B7280), fontSize: 12)),
                       Text(value,
                           style: TextStyle(
                               fontSize: 22, fontWeight: FontWeight.bold, color: color)),
@@ -385,7 +426,7 @@ class _KpiCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(subtitle ?? title,
                       style:
-                          TextStyle(color: Colors.grey[600], fontSize: 11)),
+                          const TextStyle(color: Color(0xFF6B7280), fontSize: 11)),
                 ],
               ),
       ),
@@ -402,10 +443,10 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: Colors.grey[600]),
+        Icon(icon, size: 18, color: const Color(0xFF6B7280)),
         const SizedBox(width: 6),
         Text(title,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Color(0xFF1A1A1A))),
       ],
     );
   }
