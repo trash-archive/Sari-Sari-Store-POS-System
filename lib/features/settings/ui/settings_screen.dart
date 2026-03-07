@@ -1,9 +1,7 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/providers.dart';
 import '../../../data/services/backup_service.dart';
-import '../../invoices/ui/invoice_history_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -79,22 +77,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 .read(settingsNotifierProvider.notifier)
                 .toggleNegativeBalance(v),
           ),
-
-          // ─── History ────────────────────────────────────────────────────────
-          _SectionHeader('History'),
-          ListTile(
-            leading: const Icon(Icons.receipt_long_outlined),
-            title: const Text('Invoice History'),
-            subtitle: const Text('View & void past transactions'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (_) => const InvoiceHistoryScreen()),
-            ),
+          SwitchListTile(
+            secondary: const Icon(Icons.camera_alt_outlined),
+            title: const Text('Transaction Photos'),
+            subtitle: const Text('Optionally capture photo during checkout'),
+            value: settings.enableTransactionPhotos,
+            onChanged: (v) => ref
+                .read(settingsNotifierProvider.notifier)
+                .toggleTransactionPhotos(v),
           ),
 
-          // ─── Backup & Restore ─────────────────────────────────────────────
           _SectionHeader('Backup & Restore'),
           ListTile(
             leading: const Icon(Icons.backup_outlined, color: Colors.blue),
@@ -129,6 +121,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             leading: Icon(Icons.storage_outlined),
             title: Text('Database'),
             subtitle: Text('SQLite (Drift) · All data stored on this device'),
+          ),
+          const ListTile(
+            leading: Icon(Icons.image_outlined),
+            title: Text('Product Images'),
+            subtitle: Text('Powered by Open Food Facts · CC BY-SA 3.0'),
           ),
         ],
       ),

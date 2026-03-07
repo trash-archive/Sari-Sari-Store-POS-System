@@ -13,6 +13,7 @@ class Invoices extends Table {
   IntColumn get cashReceivedCents => integer().nullable()();
   IntColumn get changeCents => integer().nullable()();
   TextColumn get notes => text().nullable()();
+  TextColumn get photoPath => text().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
   @override

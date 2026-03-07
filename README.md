@@ -13,17 +13,21 @@ A complete Point of Sale (POS) system built with Flutter for managing sari-sari 
 - **Payment Methods**:
   - **Cash Payment** - With automatic change calculation
   - **Utang (Credit)** - Track customer credit purchases
+- **Transaction Photos** - Optional photo capture for each transaction (enable in settings)
 - **Stock Validation** - Prevents overselling with real-time stock checks
 - **Invoice Generation** - Automatic invoice creation with unique numbers
 
 ### 📦 Inventory Management
 - **Product Management** - Add, edit, and track products
 - **Product Images** - Upload from gallery or camera
+- **Online Image Search** - Find images from Open Food Facts
+- **Auto-Suggest Images** - Images appear as you type product names
 - **Category Organization** - 8 default categories (Beverages, Snacks, Canned Goods, etc.)
 - **Stock Tracking** - Real-time inventory levels
 - **Low Stock Alerts** - Dedicated tab for low stock items
 - **Stock Adjustments** - Manual stock corrections with reason tracking
 - **Barcode/SKU Support** - Product identification
+- **Barcode Scanner** - Scan barcodes to auto-fetch product data
 - **Cost & Price Tracking** - For profit calculations
 
 ### 👥 Customer Management (Utang)
@@ -50,6 +54,7 @@ A complete Point of Sale (POS) system built with Flutter for managing sari-sari 
 - **Real-time Updates** - Instant data synchronization
 - **Responsive Design** - Works on all screen sizes
 - **Material Design** - Modern, clean interface
+- **Transaction Photos** - Optional camera capture during checkout
 
 ## Technology Stack
 
@@ -57,6 +62,8 @@ A complete Point of Sale (POS) system built with Flutter for managing sari-sari 
 - **State Management**: Riverpod 2.4+
 - **Database**: Drift (SQLite) - Offline-first
 - **Image Handling**: image_picker
+- **Barcode Scanning**: mobile_scanner
+- **Online Features**: Open Food Facts API (no API keys required!)
 - **PDF Generation**: pdf, printing
 - **Architecture**: Clean Architecture with feature-based structure
 
@@ -141,7 +148,10 @@ flutter run
 1. Navigate to **Products** tab
 2. Tap **Add Product** button
 3. Fill in product details (name, price, stock, etc.)
-4. Optionally add product image from gallery or camera
+4. **Add Image** (3 options):
+   - **Type product name** - Images auto-suggest from online databases
+   - **Scan Barcode** - Auto-fetch product data and image
+   - **Gallery/Camera** - Upload manually
 5. Save product
 
 ### Making a Sale
@@ -152,8 +162,9 @@ flutter run
 5. Choose payment method:
    - **Cash**: Enter amount received, see change
    - **Utang**: Select or create customer
-6. Complete transaction
-7. View invoice immediately
+6. **Optional**: Take a photo (if enabled in settings)
+7. Complete transaction
+8. View invoice immediately
 
 ### Managing Utang
 1. Navigate to **Utang** tab
@@ -202,7 +213,8 @@ The app includes 60+ sample products across 8 categories:
 
 ## Future Enhancements
 
-- [ ] Barcode scanning
+- [x] Barcode scanning
+- [x] Online product image search (Open Food Facts)
 - [ ] Multiple payment methods (GCash, Card)
 - [ ] Sales analytics dashboard
 - [ ] Backup & restore to cloud
@@ -223,6 +235,15 @@ Contributions are welcome! Please follow these steps:
 ## License
 
 This project is licensed under the MIT License.
+
+## Documentation
+
+- **[Main README](README.md)** - This file
+- **[Image Search Guide](IMAGE_DOCS_INDEX.md)** - Complete guide for image search feature
+- **[Setup Instructions](OPENFOODFACTS_SETUP.md)** - Online features setup
+- **[Visual User Guide](VISUAL_USER_GUIDE.md)** - Screenshots and examples
+- **[Developer Quick Start](DEVELOPER_QUICKSTART.md)** - For developers
+- **[Debug Guide](IMAGE_DEBUG_GUIDE.md)** - Troubleshooting help
 
 ## Support
 

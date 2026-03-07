@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/utils/currency.dart';
 import '../../../core/utils/date_utils.dart';
 import '../../../app/providers.dart';
+import '../../../app/theme.dart';
 import '../../../data/db/app_database.dart';
+import '../../settings/ui/settings_screen.dart';
 import 'invoice_detail_screen.dart';
 
 final invoiceHistoryProvider = StreamProvider<List<Invoice>>((ref) {
@@ -26,12 +28,24 @@ class _InvoiceHistoryScreenState extends ConsumerState<InvoiceHistoryScreen> {
     final invoicesAsync = ref.watch(invoiceHistoryProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Invoice History')),
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text('Invoice History', style: TextStyle(fontWeight: FontWeight.w600)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+            ),
+          ),
+        ],
+      ),
       body: Column(
         children: [
-          // Filter chips
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
@@ -68,18 +82,19 @@ class _InvoiceHistoryScreenState extends ConsumerState<InvoiceHistoryScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.receipt_long_outlined,
-                            size: 64, color: Colors.grey[300]),
-                        const SizedBox(height: 12),
-                        Text('No ${_filter == 'all' ? '' : _filter} invoices yet',
-                            style: TextStyle(color: Colors.grey[500])),
+                        Icon(Icons.receipt_long_outlined, size: 64, color: Colors.grey.shade300),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No ${_filter == 'all' ? '' : _filter} invoices yet',
+                          style: const TextStyle(color: AppTheme.textSecondary, fontSize: 16),
+                        ),
                       ],
                     ),
                   );
                 }
 
                 return ListView.builder(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(16),
                   itemCount: filtered.length,
                   itemBuilder: (context, i) {
                     final inv = filtered[i];
@@ -117,22 +132,36 @@ class _FilterChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final selected = current == value;
-    return GestureDetector(
-      onTap: () => onTap(value),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected
-              ? Theme.of(context).colorScheme.primary
-              : Colors.grey[200],
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? Colors.white : Colors.grey[700],
-            fontWeight: selected ? FontWeight.w700 : FontWeight.normal,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => onTap(value),
+        borderRadius: BorderRadius.circular(24),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? AppTheme.primary : Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: selected ? AppTheme.primary : Colors.grey.shade300,
+              width: 1.5,
+            ),
+            boxShadow: selected ? [
+              BoxShadow(
+                color: AppTheme.primary.withOpacity(0.2),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ] : null,
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.white : AppTheme.textPrimary,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              fontSize: 14,
+            ),
           ),
         ),
       ),
@@ -150,74 +179,119 @@ class _InvoiceTile extends ConsumerWidget {
     final isUtang = invoice.type == 'utang';
     final isVoided = invoice.status == 'voided';
 
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 3),
-      child: ListTile(
-        onTap: onTap,
-        leading: CircleAvatar(
-          backgroundColor: isVoided
-              ? Colors.grey[200]
-              : isUtang
-                  ? Colors.orange[100]
-                  : Colors.green[100],
-          child: Icon(
-            isVoided
-                ? Icons.cancel_outlined
-                : isUtang
-                    ? Icons.people_outline
-                    : Icons.payments_outlined,
-            color: isVoided
-                ? Colors.grey
-                : isUtang
-                    ? Colors.orange[800]
-                    : Colors.green[800],
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-        ),
-        title: Text(
-          invoice.invoiceNo,
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            color: isVoided ? Colors.grey : null,
-            decoration: isVoided ? TextDecoration.lineThrough : null,
-          ),
-        ),
-        subtitle: Text(formatDateTime(invoice.createdAt)),
-        trailing: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              formatCurrency(invoice.totalCents),
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: isVoided ? Colors.grey : null,
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: isVoided
-                    ? Colors.grey[200]
-                    : isUtang
-                        ? Colors.orange[50]
-                        : Colors.green[50],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                isVoided ? 'VOIDED' : isUtang ? 'UTANG' : 'CASH',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: isVoided
-                      ? Colors.grey
-                      : isUtang
-                          ? Colors.orange[700]
-                          : Colors.green[700],
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: isVoided
+                        ? Colors.grey.shade100
+                        : isUtang
+                            ? Colors.orange.shade50
+                            : Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    isVoided
+                        ? Icons.cancel_outlined
+                        : isUtang
+                            ? Icons.people_outline
+                            : Icons.payments_outlined,
+                    color: isVoided
+                        ? Colors.grey.shade600
+                        : isUtang
+                            ? Colors.orange.shade700
+                            : Colors.green.shade700,
+                    size: 24,
+                  ),
                 ),
-              ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        invoice.invoiceNo,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                          color: isVoided ? Colors.grey.shade600 : AppTheme.textPrimary,
+                          decoration: isVoided ? TextDecoration.lineThrough : null,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        formatDateTime(invoice.createdAt),
+                        style: const TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      formatCurrency(invoice.totalCents),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: isVoided ? Colors.grey.shade600 : AppTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isVoided
+                            ? Colors.grey.shade200
+                            : isUtang
+                                ? Colors.orange.shade100
+                                : Colors.green.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        isVoided ? 'VOIDED' : isUtang ? 'UTANG' : 'CASH',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: isVoided
+                              ? Colors.grey.shade600
+                              : isUtang
+                                  ? Colors.orange.shade700
+                                  : Colors.green.shade700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

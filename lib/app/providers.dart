@@ -16,16 +16,19 @@ final imageStorageProvider =
 class AppSettings {
   final String storeName;
   final bool allowNegativeBalance;
+  final bool enableTransactionPhotos;
 
   const AppSettings({
     this.storeName = 'My Sari-sari Store',
     this.allowNegativeBalance = false,
+    this.enableTransactionPhotos = false,
   });
 
-  AppSettings copyWith({String? storeName, bool? allowNegativeBalance}) =>
+  AppSettings copyWith({String? storeName, bool? allowNegativeBalance, bool? enableTransactionPhotos}) =>
       AppSettings(
         storeName: storeName ?? this.storeName,
         allowNegativeBalance: allowNegativeBalance ?? this.allowNegativeBalance,
+        enableTransactionPhotos: enableTransactionPhotos ?? this.enableTransactionPhotos,
       );
 }
 
@@ -38,6 +41,10 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
 
   void toggleNegativeBalance(bool allow) {
     state = state.copyWith(allowNegativeBalance: allow);
+  }
+
+  void toggleTransactionPhotos(bool enable) {
+    state = state.copyWith(enableTransactionPhotos: enable);
   }
 }
 

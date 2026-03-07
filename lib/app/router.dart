@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:sari_pos/features/pos/ui/pos_screen.dart';
-import 'package:sari_pos/features/products/ui/products_screen.dart';
-import 'package:sari_pos/features/utang/ui/utang_screen.dart';
-import 'package:sari_pos/features/reports/ui/reports_screen.dart';
-import 'package:sari_pos/features/settings/ui/settings_screen.dart';
+import 'package:tindako/features/pos/ui/pos_screen.dart';
+import 'package:tindako/features/products/ui/products_screen.dart';
+import 'package:tindako/features/invoices/ui/invoice_history_screen.dart';
+import 'package:tindako/features/utang/ui/utang_screen.dart';
+import 'package:tindako/features/reports/ui/reports_screen.dart';
+import 'package:tindako/features/settings/ui/settings_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -18,9 +19,9 @@ class _MainShellState extends State<MainShell> {
   final List<Widget> _screens = const [
     PosScreen(),
     ProductsScreen(),
+    InvoiceHistoryScreen(),
     UtangScreen(),
     ReportsScreen(),
-    SettingsScreen(),
   ];
 
   @override
@@ -46,12 +47,17 @@ class _MainShellState extends State<MainShell> {
             NavigationDestination(
               icon: Icon(Icons.point_of_sale_outlined),
               selectedIcon: Icon(Icons.point_of_sale),
-              label: 'POS',
+              label: 'Sell',
             ),
             NavigationDestination(
               icon: Icon(Icons.inventory_2_outlined),
               selectedIcon: Icon(Icons.inventory_2),
               label: 'Products',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.receipt_long_outlined),
+              selectedIcon: Icon(Icons.receipt_long),
+              label: 'Invoices',
             ),
             NavigationDestination(
               icon: Icon(Icons.people_outline),
@@ -62,11 +68,6 @@ class _MainShellState extends State<MainShell> {
               icon: Icon(Icons.bar_chart_outlined),
               selectedIcon: Icon(Icons.bar_chart),
               label: 'Reports',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.settings_outlined),
-              selectedIcon: Icon(Icons.settings),
-              label: 'Settings',
             ),
           ],
         ),

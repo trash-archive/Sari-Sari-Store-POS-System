@@ -1414,6 +1414,12 @@ class $InvoicesTable extends Invoices with TableInfo<$InvoicesTable, Invoice> {
   late final GeneratedColumn<String> notes = GeneratedColumn<String>(
       'notes', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _photoPathMeta =
+      const VerificationMeta('photoPath');
+  @override
+  late final GeneratedColumn<String> photoPath = GeneratedColumn<String>(
+      'photo_path', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -1435,6 +1441,7 @@ class $InvoicesTable extends Invoices with TableInfo<$InvoicesTable, Invoice> {
         cashReceivedCents,
         changeCents,
         notes,
+        photoPath,
         createdAt
       ];
   @override
@@ -1508,6 +1515,10 @@ class $InvoicesTable extends Invoices with TableInfo<$InvoicesTable, Invoice> {
       context.handle(
           _notesMeta, notes.isAcceptableOrUnknown(data['notes']!, _notesMeta));
     }
+    if (data.containsKey('photo_path')) {
+      context.handle(_photoPathMeta,
+          photoPath.isAcceptableOrUnknown(data['photo_path']!, _photoPathMeta));
+    }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta,
           createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
@@ -1543,6 +1554,8 @@ class $InvoicesTable extends Invoices with TableInfo<$InvoicesTable, Invoice> {
           .read(DriftSqlType.int, data['${effectivePrefix}change_cents']),
       notes: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}notes']),
+      photoPath: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}photo_path']),
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
     );
@@ -1566,6 +1579,7 @@ class Invoice extends DataClass implements Insertable<Invoice> {
   final int? cashReceivedCents;
   final int? changeCents;
   final String? notes;
+  final String? photoPath;
   final DateTime createdAt;
   const Invoice(
       {required this.id,
@@ -1579,6 +1593,7 @@ class Invoice extends DataClass implements Insertable<Invoice> {
       this.cashReceivedCents,
       this.changeCents,
       this.notes,
+      this.photoPath,
       required this.createdAt});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1601,6 +1616,9 @@ class Invoice extends DataClass implements Insertable<Invoice> {
     }
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
+    }
+    if (!nullToAbsent || photoPath != null) {
+      map['photo_path'] = Variable<String>(photoPath);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
@@ -1626,6 +1644,9 @@ class Invoice extends DataClass implements Insertable<Invoice> {
           : Value(changeCents),
       notes:
           notes == null && nullToAbsent ? const Value.absent() : Value(notes),
+      photoPath: photoPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(photoPath),
       createdAt: Value(createdAt),
     );
   }
@@ -1645,6 +1666,7 @@ class Invoice extends DataClass implements Insertable<Invoice> {
       cashReceivedCents: serializer.fromJson<int?>(json['cashReceivedCents']),
       changeCents: serializer.fromJson<int?>(json['changeCents']),
       notes: serializer.fromJson<String?>(json['notes']),
+      photoPath: serializer.fromJson<String?>(json['photoPath']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -1663,6 +1685,7 @@ class Invoice extends DataClass implements Insertable<Invoice> {
       'cashReceivedCents': serializer.toJson<int?>(cashReceivedCents),
       'changeCents': serializer.toJson<int?>(changeCents),
       'notes': serializer.toJson<String?>(notes),
+      'photoPath': serializer.toJson<String?>(photoPath),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -1679,6 +1702,7 @@ class Invoice extends DataClass implements Insertable<Invoice> {
           Value<int?> cashReceivedCents = const Value.absent(),
           Value<int?> changeCents = const Value.absent(),
           Value<String?> notes = const Value.absent(),
+          Value<String?> photoPath = const Value.absent(),
           DateTime? createdAt}) =>
       Invoice(
         id: id ?? this.id,
@@ -1694,6 +1718,7 @@ class Invoice extends DataClass implements Insertable<Invoice> {
             : this.cashReceivedCents,
         changeCents: changeCents.present ? changeCents.value : this.changeCents,
         notes: notes.present ? notes.value : this.notes,
+        photoPath: photoPath.present ? photoPath.value : this.photoPath,
         createdAt: createdAt ?? this.createdAt,
       );
   Invoice copyWithCompanion(InvoicesCompanion data) {
@@ -1718,6 +1743,7 @@ class Invoice extends DataClass implements Insertable<Invoice> {
       changeCents:
           data.changeCents.present ? data.changeCents.value : this.changeCents,
       notes: data.notes.present ? data.notes.value : this.notes,
+      photoPath: data.photoPath.present ? data.photoPath.value : this.photoPath,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -1736,6 +1762,7 @@ class Invoice extends DataClass implements Insertable<Invoice> {
           ..write('cashReceivedCents: $cashReceivedCents, ')
           ..write('changeCents: $changeCents, ')
           ..write('notes: $notes, ')
+          ..write('photoPath: $photoPath, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -1754,6 +1781,7 @@ class Invoice extends DataClass implements Insertable<Invoice> {
       cashReceivedCents,
       changeCents,
       notes,
+      photoPath,
       createdAt);
   @override
   bool operator ==(Object other) =>
@@ -1770,6 +1798,7 @@ class Invoice extends DataClass implements Insertable<Invoice> {
           other.cashReceivedCents == this.cashReceivedCents &&
           other.changeCents == this.changeCents &&
           other.notes == this.notes &&
+          other.photoPath == this.photoPath &&
           other.createdAt == this.createdAt);
 }
 
@@ -1785,6 +1814,7 @@ class InvoicesCompanion extends UpdateCompanion<Invoice> {
   final Value<int?> cashReceivedCents;
   final Value<int?> changeCents;
   final Value<String?> notes;
+  final Value<String?> photoPath;
   final Value<DateTime> createdAt;
   final Value<int> rowid;
   const InvoicesCompanion({
@@ -1799,6 +1829,7 @@ class InvoicesCompanion extends UpdateCompanion<Invoice> {
     this.cashReceivedCents = const Value.absent(),
     this.changeCents = const Value.absent(),
     this.notes = const Value.absent(),
+    this.photoPath = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -1814,6 +1845,7 @@ class InvoicesCompanion extends UpdateCompanion<Invoice> {
     this.cashReceivedCents = const Value.absent(),
     this.changeCents = const Value.absent(),
     this.notes = const Value.absent(),
+    this.photoPath = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
@@ -1831,6 +1863,7 @@ class InvoicesCompanion extends UpdateCompanion<Invoice> {
     Expression<int>? cashReceivedCents,
     Expression<int>? changeCents,
     Expression<String>? notes,
+    Expression<String>? photoPath,
     Expression<DateTime>? createdAt,
     Expression<int>? rowid,
   }) {
@@ -1846,6 +1879,7 @@ class InvoicesCompanion extends UpdateCompanion<Invoice> {
       if (cashReceivedCents != null) 'cash_received_cents': cashReceivedCents,
       if (changeCents != null) 'change_cents': changeCents,
       if (notes != null) 'notes': notes,
+      if (photoPath != null) 'photo_path': photoPath,
       if (createdAt != null) 'created_at': createdAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -1863,6 +1897,7 @@ class InvoicesCompanion extends UpdateCompanion<Invoice> {
       Value<int?>? cashReceivedCents,
       Value<int?>? changeCents,
       Value<String?>? notes,
+      Value<String?>? photoPath,
       Value<DateTime>? createdAt,
       Value<int>? rowid}) {
     return InvoicesCompanion(
@@ -1877,6 +1912,7 @@ class InvoicesCompanion extends UpdateCompanion<Invoice> {
       cashReceivedCents: cashReceivedCents ?? this.cashReceivedCents,
       changeCents: changeCents ?? this.changeCents,
       notes: notes ?? this.notes,
+      photoPath: photoPath ?? this.photoPath,
       createdAt: createdAt ?? this.createdAt,
       rowid: rowid ?? this.rowid,
     );
@@ -1918,6 +1954,9 @@ class InvoicesCompanion extends UpdateCompanion<Invoice> {
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (photoPath.present) {
+      map['photo_path'] = Variable<String>(photoPath.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -1941,6 +1980,7 @@ class InvoicesCompanion extends UpdateCompanion<Invoice> {
           ..write('cashReceivedCents: $cashReceivedCents, ')
           ..write('changeCents: $changeCents, ')
           ..write('notes: $notes, ')
+          ..write('photoPath: $photoPath, ')
           ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -4227,6 +4267,7 @@ typedef $$InvoicesTableCreateCompanionBuilder = InvoicesCompanion Function({
   Value<int?> cashReceivedCents,
   Value<int?> changeCents,
   Value<String?> notes,
+  Value<String?> photoPath,
   Value<DateTime> createdAt,
   Value<int> rowid,
 });
@@ -4242,6 +4283,7 @@ typedef $$InvoicesTableUpdateCompanionBuilder = InvoicesCompanion Function({
   Value<int?> cashReceivedCents,
   Value<int?> changeCents,
   Value<String?> notes,
+  Value<String?> photoPath,
   Value<DateTime> createdAt,
   Value<int> rowid,
 });
@@ -4320,6 +4362,9 @@ class $$InvoicesTableFilterComposer
 
   ColumnFilters<String> get notes => $composableBuilder(
       column: $table.notes, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get photoPath => $composableBuilder(
+      column: $table.photoPath, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
@@ -4408,6 +4453,9 @@ class $$InvoicesTableOrderingComposer
   ColumnOrderings<String> get notes => $composableBuilder(
       column: $table.notes, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get photoPath => $composableBuilder(
+      column: $table.photoPath, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
 
@@ -4470,6 +4518,9 @@ class $$InvoicesTableAnnotationComposer
 
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<String> get photoPath =>
+      $composableBuilder(column: $table.photoPath, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -4550,6 +4601,7 @@ class $$InvoicesTableTableManager extends RootTableManager<
             Value<int?> cashReceivedCents = const Value.absent(),
             Value<int?> changeCents = const Value.absent(),
             Value<String?> notes = const Value.absent(),
+            Value<String?> photoPath = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
@@ -4565,6 +4617,7 @@ class $$InvoicesTableTableManager extends RootTableManager<
             cashReceivedCents: cashReceivedCents,
             changeCents: changeCents,
             notes: notes,
+            photoPath: photoPath,
             createdAt: createdAt,
             rowid: rowid,
           ),
@@ -4580,6 +4633,7 @@ class $$InvoicesTableTableManager extends RootTableManager<
             Value<int?> cashReceivedCents = const Value.absent(),
             Value<int?> changeCents = const Value.absent(),
             Value<String?> notes = const Value.absent(),
+            Value<String?> photoPath = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
@@ -4595,6 +4649,7 @@ class $$InvoicesTableTableManager extends RootTableManager<
             cashReceivedCents: cashReceivedCents,
             changeCents: changeCents,
             notes: notes,
+            photoPath: photoPath,
             createdAt: createdAt,
             rowid: rowid,
           ),

@@ -85,6 +85,8 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(customer.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 18,
@@ -150,109 +152,192 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
   }
 
   void _recordPayment(BuildContext context, Customer customer) {
-    final amountCtrl = TextEditingController();
+    final amountPaidCtrl = TextEditingController();
     final notesCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
+    double? changeDue;
 
     showDialog(
       context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Container(
-          color: Colors.white,
-          padding: const EdgeInsets.all(24),
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Payment from ${customer.name}',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey[200]!),
-                  ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) => Dialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Container(
+            color: Colors.white,
+            constraints: const BoxConstraints(maxHeight: 600),
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Form(
+                  key: formKey,
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Current Balance',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                        'Payment from ${customer.name}',
+                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        formatCurrency(customer.balanceCents),
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.red,
+                      const SizedBox(height: 20),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[200]!),
                         ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Outstanding Balance',
+                              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              formatCurrency(customer.balanceCents),
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      TextFormField(
+                        controller: amountPaidCtrl,
+                        autofocus: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Amount Paid (₱)',
+                          prefixText: '₱',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        onChanged: (value) {
+                          final paid = double.tryParse(value) ?? 0;
+                          final balance = customer.balanceCents / 100;
+                          setState(() {
+                            changeDue = paid > balance ? paid - balance : null;
+                          });
+                        },
+                        validator: (v) {
+                          if (v?.trim().isEmpty ?? true) return 'Amount is required';
+                          final amount = double.tryParse(v!);
+                          if (amount == null || amount <= 0) return 'Enter valid amount';
+                          return null;
+                        },
+                      ),
+                      if (changeDue != null && changeDue! > 0) ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.green[50],
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.green[200]!),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Change Due',
+                                style: TextStyle(fontSize: 12, color: Colors.green[700]),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                formatCurrency((changeDue! * 100).round()),
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: notesCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Notes (optional)',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Cancel'),
+                          ),
+                          const SizedBox(width: 12),
+                          ElevatedButton(
+                            onPressed: () async {
+                              if (!formKey.currentState!.validate()) return;
+                              final amountPaid = double.parse(amountPaidCtrl.text);
+                              final amountPaidCents = (amountPaid * 100).round();
+                              final paymentAmount = amountPaidCents > customer.balanceCents 
+                                  ? customer.balanceCents 
+                                  : amountPaidCents;
+                              
+                              await ref.read(customersNotifierProvider.notifier).recordPayment(
+                                customerId: customer.id,
+                                amountCents: paymentAmount,
+                                notes: notesCtrl.text.isEmpty ? null : notesCtrl.text,
+                              );
+                              
+                              if (ctx.mounted) Navigator.pop(ctx);
+                              ref.invalidate(customerDetailProvider(customer.id));
+                              
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Row(
+                                      children: [
+                                        Icon(Icons.check_circle, color: Colors.white, size: 20),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text('Payment recorded: ${formatCurrency(paymentAmount)}'),
+                                              if (changeDue != null && changeDue! > 0)
+                                                Text(
+                                                  'Change due: ${formatCurrency((changeDue! * 100).round())}',
+                                                  style: const TextStyle(fontSize: 12),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    backgroundColor: const Color(0xFF2E7D32),
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    duration: const Duration(seconds: 4),
+                                  ),
+                                );
+                              }
+                            },
+                            child: const Text('Record Payment'),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
-                TextFormField(
-                  controller: amountCtrl,
-                  autofocus: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Payment Amount (₱)',
-                    prefixText: '₱',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  validator: (v) {
-                    if (v?.trim().isEmpty ?? true) return 'Amount is required';
-                    final amount = double.tryParse(v!);
-                    if (amount == null || amount <= 0) return 'Enter valid amount';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: notesCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Notes (optional)',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text('Cancel'),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton(
-                      onPressed: () async {
-                        if (!formKey.currentState!.validate()) return;
-                        final raw = double.parse(amountCtrl.text);
-                        final amountCents = (raw * 100).round();
-                        await ref.read(customersNotifierProvider.notifier).recordPayment(
-                          customerId: customer.id,
-                          amountCents: amountCents,
-                          notes: notesCtrl.text.isEmpty ? null : notesCtrl.text,
-                        );
-                        if (ctx.mounted) Navigator.pop(ctx);
-                        ref.invalidate(customerDetailProvider(customer.id));
-                      },
-                      child: const Text('Record Payment'),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -265,59 +350,147 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
     final phoneCtrl = TextEditingController(text: customer.phone ?? '');
     final addressCtrl = TextEditingController(text: customer.address ?? '');
     final notesCtrl = TextEditingController(text: customer.notes ?? '');
+    final formKey = GlobalKey<FormState>();
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Edit Customer'),
-        content: SingleChildScrollView(
+      barrierColor: Colors.black54,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          color: Colors.white,
+          constraints: const BoxConstraints(maxWidth: 400),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(
-                  controller: nameCtrl,
-                  decoration:
-                      const InputDecoration(labelText: 'Name *')),
-              const SizedBox(height: 8),
-              TextField(
-                  controller: phoneCtrl,
-                  decoration:
-                      const InputDecoration(labelText: 'Phone')),
-              const SizedBox(height: 8),
-              TextField(
-                  controller: addressCtrl,
-                  decoration:
-                      const InputDecoration(labelText: 'Address')),
-              const SizedBox(height: 8),
-              TextField(
-                  controller: notesCtrl,
-                  decoration: const InputDecoration(labelText: 'Notes'),
-                  maxLines: 2),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
+                child: Row(
+                  children: [
+                    const Text('Edit Customer', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 20),
+                      onPressed: () => Navigator.pop(ctx),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(height: 1, color: Colors.grey.shade200),
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: SingleChildScrollView(
+                  child: Form(
+                    key: formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Text('Customer Name', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87)),
+                            const Text(' *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.red)),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: nameCtrl,
+                          decoration: InputDecoration(
+                            hintText: 'Enter customer name',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            errorMaxLines: 2,
+                          ),
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
+                          validator: (v) {
+                            if (v?.trim().isEmpty ?? true) return 'Customer name is required';
+                            if (v!.trim().length > 30) return 'Name must be 30 characters or less';
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        const Text('Phone (optional)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87)),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: phoneCtrl,
+                          decoration: InputDecoration(
+                            hintText: 'Enter phone number',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text('Address (optional)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87)),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: addressCtrl,
+                          decoration: InputDecoration(
+                            hintText: 'Enter address',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text('Notes (optional)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87)),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: notesCtrl,
+                          decoration: InputDecoration(
+                            hintText: 'Enter notes',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          ),
+                          maxLines: 2,
+                        ),
+                        const SizedBox(height: 20),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                child: const Text('Cancel'),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () async {
+                                  if (formKey.currentState!.validate()) {
+                                    await ref.read(customersNotifierProvider.notifier).updateCustomerFields(
+                                      customer: customer,
+                                      name: nameCtrl.text.trim(),
+                                      phone: phoneCtrl.text.isEmpty ? null : phoneCtrl.text.trim(),
+                                      address: addressCtrl.text.isEmpty ? null : addressCtrl.text.trim(),
+                                      notes: notesCtrl.text.isEmpty ? null : notesCtrl.text.trim(),
+                                    );
+                                    if (ctx.mounted) Navigator.pop(ctx);
+                                    ref.invalidate(customerDetailProvider(customer.id));
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                child: const Text('Save'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameCtrl.text.trim().isEmpty) return;
-              await ref
-                  .read(customersNotifierProvider.notifier)
-                  .updateCustomerFields(
-                    customer: customer,
-                    name: nameCtrl.text.trim(),
-                    phone: phoneCtrl.text.isEmpty ? null : phoneCtrl.text.trim(),
-                    address: addressCtrl.text.isEmpty ? null : addressCtrl.text.trim(),
-                    notes: notesCtrl.text.isEmpty ? null : notesCtrl.text.trim(),
-                  );
-              if (ctx.mounted) Navigator.pop(ctx);
-              ref.invalidate(customerDetailProvider(customer.id));
-            },
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
   }

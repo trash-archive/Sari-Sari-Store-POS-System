@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:io';
 import '../../../core/utils/currency.dart';
 import '../../../core/utils/date_utils.dart';
 import '../../../app/providers.dart';
+import '../../../app/theme.dart';
 import '../../../data/db/app_database.dart';
 import '../../../data/services/pdf_service.dart';
 
 final invoiceDetailProvider =
-    FutureProvider.family<_InvoiceData?, String>((ref, id) async {
+    FutureProvider.autoDispose.family<_InvoiceData?, String>((ref, id) async {
   final db = ref.watch(databaseProvider);
   final invoice = await db.invoicesDao.getInvoiceById(id);
   if (invoice == null) return null;
@@ -35,8 +37,9 @@ class InvoiceDetailScreen extends ConsumerWidget {
     final dataAsync = ref.watch(invoiceDetailProvider(invoiceId));
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Invoice'),
+        title: const Text('Invoice', style: TextStyle(fontWeight: FontWeight.w600)),
         actions: [
           if (dataAsync.valueOrNull?.invoice.status == 'active')
               PopupMenuButton<String>(
@@ -70,97 +73,306 @@ class InvoiceDetailScreen extends ConsumerWidget {
           final isVoided = inv.status == 'voided';
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header
-                if (isVoided)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.red[50],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text('⚠️ This invoice has been VOIDED',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            color: Colors.red, fontWeight: FontWeight.bold)),
+                // Receipt Container
+                Container(
+                  margin: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade300, width: 1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                const SizedBox(height: 12),
+                  child: Column(
+                    children: [
+                      // Receipt Header
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary.withOpacity(0.05),
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(Icons.store, size: 32, color: AppTheme.primary),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'TindaKo',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'SALES RECEIPT',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.textSecondary,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      // Void Warning
+                      if (isVoided)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          color: Colors.red.shade50,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.cancel_outlined, color: Colors.red.shade700, size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                'VOIDED TRANSACTION',
+                                style: TextStyle(
+                                  color: Colors.red.shade700,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
 
-                // Invoice meta
-                _Section(
-                  title: 'Invoice Details',
-                  children: [
-                    _Row('Invoice #', inv.invoiceNo),
-                    _Row('Date', formatDateTime(inv.createdAt)),
-                    _Row('Type', inv.type.toUpperCase()),
-                    if (data.customer != null)
-                      _Row('Customer', data.customer!.name),
-                    if (inv.notes != null) _Row('Notes', inv.notes!),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Items
-                _Section(
-                  title: 'Items',
-                  children: data.items
-                      .map((item) => Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Row(
+                      // Receipt Body
+                      Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Invoice Details
+                            _ReceiptRow('Receipt #:', inv.invoiceNo, bold: true),
+                            const SizedBox(height: 4),
+                            _ReceiptRow('Date:', formatDateTime(inv.createdAt)),
+                            const SizedBox(height: 4),
+                            _ReceiptRow('Type:', inv.type.toUpperCase()),
+                            if (data.customer != null)
+                              const SizedBox(height: 4),
+                            if (data.customer != null)
+                              _ReceiptRow('Customer:', data.customer!.name, overflow: true),
+                            if (inv.notes != null)
+                              const SizedBox(height: 4),
+                            if (inv.notes != null)
+                              _ReceiptRow('Notes:', inv.notes!),
+                            
+                            const SizedBox(height: 20),
+                            
+                            // Dashed Line
+                            _DashedLine(),
+                            const SizedBox(height: 16),
+                            
+                            // Items Header
+                            const Row(
                               children: [
                                 Expanded(
+                                  flex: 3,
                                   child: Text(
-                                    '${item.productNameSnapshot} (${item.unitSnapshot})',
-                                    style: const TextStyle(fontWeight: FontWeight.w500),
+                                    'ITEM',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.textSecondary,
+                                    ),
                                   ),
                                 ),
-                                Text('x${item.qty}',
-                                    style: TextStyle(color: Colors.grey[600])),
-                                const SizedBox(width: 8),
-                                Text(
-                                  formatCurrency(item.priceSnapshotCents),
-                                  style: TextStyle(color: Colors.grey[600]),
-                                ),
-                                const SizedBox(width: 8),
                                 SizedBox(
-                                  width: 80,
+                                  width: 40,
                                   child: Text(
-                                    formatCurrency(item.lineTotalCents),
+                                    'QTY',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 60,
+                                  child: Text(
+                                    'PRICE',
                                     textAlign: TextAlign.right,
-                                    style: const TextStyle(fontWeight: FontWeight.w600),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 70,
+                                  child: Text(
+                                    'TOTAL',
+                                    textAlign: TextAlign.right,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.textSecondary,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
-                          ))
-                      .toList(),
+                            const SizedBox(height: 8),
+                            
+                            // Items
+                            ...data.items.map((item) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    flex: 3,
+                                    child: Text(
+                                      '${item.productNameSnapshot} (${item.unitSnapshot})',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: AppTheme.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: 40,
+                                    child: Text(
+                                      '${item.qty}',
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: AppTheme.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: 60,
+                                    child: Text(
+                                      formatCurrency(item.priceSnapshotCents),
+                                      textAlign: TextAlign.right,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: AppTheme.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: 70,
+                                    child: Text(
+                                      formatCurrency(item.lineTotalCents),
+                                      textAlign: TextAlign.right,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTheme.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )),
+                            
+                            const SizedBox(height: 16),
+                            _DashedLine(),
+                            const SizedBox(height: 16),
+                            
+                            // Totals
+                            if (inv.discountCents > 0)
+                              _ReceiptRow('Discount:', '- ${formatCurrency(inv.discountCents)}', valueColor: Colors.green.shade700),
+                            if (inv.discountCents > 0)
+                              const SizedBox(height: 8),
+                            _ReceiptRow('TOTAL:', formatCurrency(inv.totalCents), bold: true, fontSize: 18),
+                            
+                            if (inv.type == 'cash' && inv.cashReceivedCents != null)
+                              const SizedBox(height: 12),
+                            if (inv.type == 'cash' && inv.cashReceivedCents != null)
+                              _DashedLine(),
+                            if (inv.type == 'cash' && inv.cashReceivedCents != null)
+                              const SizedBox(height: 12),
+                            if (inv.type == 'cash' && inv.cashReceivedCents != null)
+                              _ReceiptRow('Cash Received:', formatCurrency(inv.cashReceivedCents!)),
+                            if (inv.changeCents != null && inv.changeCents! > 0)
+                              const SizedBox(height: 4),
+                            if (inv.changeCents != null && inv.changeCents! > 0)
+                              _ReceiptRow('Change:', formatCurrency(inv.changeCents!), valueColor: Colors.blue.shade700),
+                            
+                            const SizedBox(height: 20),
+                            _DashedLine(),
+                            const SizedBox(height: 16),
+                            
+                            // Footer
+                            const Center(
+                              child: Text(
+                                'Thank you for your business!',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 16),
-
-                // Totals
-                _Section(
-                  title: 'Summary',
-                  children: [
-                    _Row('Subtotal', formatCurrency(inv.subtotalCents)),
-                    if (inv.discountCents > 0)
-                      _Row('Discount', '- ${formatCurrency(inv.discountCents)}',
-                          valueColor: Colors.green),
-                    const Divider(),
-                    _Row('TOTAL', formatCurrency(inv.totalCents),
-                        bold: true, valueSize: 20),
-                    if (inv.type == 'cash' && inv.cashReceivedCents != null)
-                      const Divider(),
-                    if (inv.type == 'cash' && inv.cashReceivedCents != null)
-                      _Row('Cash Received', formatCurrency(inv.cashReceivedCents!)),
-                    if (inv.type == 'cash' && inv.changeCents != null && inv.changeCents! > 0)
-                      _Row('Change', formatCurrency(inv.changeCents!),
-                          valueColor: Colors.blue),
-                  ],
-                ),
+                
+                // Transaction Photo
+                if (inv.photoPath != null)
+                  Container(
+                    margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Text(
+                            'Transaction Photo',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                        ),
+                        ClipRRect(
+                          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+                          child: Image.file(
+                            File(inv.photoPath!),
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                
+                const SizedBox(height: 20),
               ],
             ),
           );
@@ -222,23 +434,39 @@ class InvoiceDetailScreen extends ConsumerWidget {
   }
 }
 
-class _Section extends StatelessWidget {
-  final String title;
-  final List<Widget> children;
-  const _Section({required this.title, required this.children});
+class _ReceiptRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color? valueColor;
+  final bool bold;
+  final double? fontSize;
+  final bool overflow;
+  const _ReceiptRow(this.label, this.value, {this.valueColor, this.bold = false, this.fontSize, this.overflow = false});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(title,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-        const SizedBox(height: 8),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(children: children),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: fontSize ?? 14,
+            fontWeight: bold ? FontWeight.bold : FontWeight.w500,
+            color: AppTheme.textSecondary,
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            maxLines: overflow ? 1 : null,
+            overflow: overflow ? TextOverflow.ellipsis : null,
+            style: TextStyle(
+              fontSize: fontSize ?? 14,
+              fontWeight: bold ? FontWeight.bold : FontWeight.w600,
+              color: valueColor ?? AppTheme.textPrimary,
+            ),
           ),
         ),
       ],
@@ -246,39 +474,18 @@ class _Section extends StatelessWidget {
   }
 }
 
-class _Row extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color? valueColor;
-  final bool bold;
-  final double? valueSize;
-  const _Row(this.label, this.value,
-      {this.valueColor, this.bold = false, this.valueSize});
-
+class _DashedLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(label,
-                style: TextStyle(
-                    color: Colors.grey[600], fontSize: 13)),
+    return Row(
+      children: List.generate(
+        30,
+        (index) => Expanded(
+          child: Container(
+            height: 1,
+            color: index % 2 == 0 ? Colors.grey.shade400 : Colors.transparent,
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: TextStyle(
-                fontWeight: bold ? FontWeight.bold : FontWeight.w500,
-                color: valueColor,
-                fontSize: valueSize,
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

@@ -12,6 +12,11 @@ final categoriesProvider = StreamProvider<List<Category>>((ref) {
   return db.productsDao.watchAllCategories();
 });
 
+final categoryProductCountProvider = FutureProvider.family<int, String>((ref, categoryId) async {
+  final db = ref.watch(databaseProvider);
+  return db.productsDao.getProductCountByCategory(categoryId);
+});
+
 // Products
 final productsProvider = StreamProvider<List<Product>>((ref) {
   final db = ref.watch(databaseProvider);
@@ -116,12 +121,23 @@ class ProductsNotifier extends Notifier<void> {
     ));
   }
 
-  Future<void> deleteProduct(String id) async {
-    await _db.productsDao.softDeleteProduct(id);
+  Future<void> updateCategory(String id, String name) async {
+    await _db.productsDao.updateCategory(CategoriesCompanion(
+      id: Value(id),
+      name: Value(name),
+    ));
   }
 
   Future<void> deleteCategory(String id) async {
+    final productCount = await _db.productsDao.getProductCountByCategory(id);
+    if (productCount > 0) {
+      throw Exception('Cannot delete category with $productCount product${productCount > 1 ? 's' : ''}');
+    }
     await _db.productsDao.deleteCategory(id);
+  }
+
+  Future<void> deleteProduct(String id) async {
+    await _db.productsDao.softDeleteProduct(id);
   }
 }
 

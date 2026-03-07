@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../app/providers.dart';
 import '../../../app/theme.dart';
 import '../../../core/utils/currency.dart';
 import '../../../data/db/app_database.dart';
+import '../../../data/services/image_storage_service.dart';
 import '../../products/state/products_provider.dart';
+import '../../products/ui/product_form_screen.dart';
+import '../../settings/ui/settings_screen.dart';
 import '../state/cart_provider.dart';
 import '../../utang/state/customers_provider.dart';
 import '../../invoices/ui/invoice_detail_screen.dart';
@@ -22,8 +26,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   final _scrollController = ScrollController();
   String _searchQuery = '';
   String? _selectedCategoryId;
-  bool _isSearchExpanded = false;
   bool _showFloatingButtons = false;
+  bool _isSearchExpanded = false;
 
   @override
   void initState() {
@@ -32,13 +36,14 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   }
 
   void _onScroll() {
-    if (_scrollController.offset > 50 && !_showFloatingButtons) {
+    final offset = _scrollController.offset;
+    final shouldShow = offset > 50;
+    
+    if (shouldShow != _showFloatingButtons) {
       setState(() {
-        _showFloatingButtons = true;
-        _isSearchExpanded = false;
+        _showFloatingButtons = shouldShow;
+        if (shouldShow) _isSearchExpanded = false;
       });
-    } else if (_scrollController.offset <= 50 && _showFloatingButtons) {
-      setState(() => _showFloatingButtons = false);
     }
   }
 
@@ -52,7 +57,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Point of Sale', style: TextStyle(fontWeight: FontWeight.w600)),
+        title: const Text('Sell Products', style: TextStyle(fontWeight: FontWeight.w600)),
         actions: [
           if (cart.itemCount > 0)
             Padding(
@@ -84,6 +89,11 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 ],
               ),
             ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen())),
+          ),
         ],
       ),
       body: Stack(
@@ -105,8 +115,16 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                         Expanded(
                           child: Container(
                             decoration: BoxDecoration(
-                              color: AppTheme.surface,
-                              borderRadius: BorderRadius.circular(12),
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: Colors.grey.shade300),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.08),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
                             ),
                             child: TextField(
                               controller: _searchCtrl,
@@ -115,7 +133,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                 hintStyle: TextStyle(color: AppTheme.textSecondary),
                                 prefixIcon: Icon(Icons.search, color: AppTheme.textSecondary),
                                 border: InputBorder.none,
-                                contentPadding: EdgeInsets.only(top: 14, bottom: 14),
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(vertical: 12),
                                 filled: false,
                               ),
                               onChanged: (v) => setState(() => _searchQuery = v),
@@ -149,80 +169,95 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           if (_showFloatingButtons)
             Positioned(
               top: 16,
+              left: 16,
               right: 16,
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 300),
-                opacity: _showFloatingButtons ? 1 : 0,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                      width: _isSearchExpanded ? MediaQuery.of(context).size.width - 100 : 48,
-                      height: 48,
-                      child: Material(
-                        elevation: 4,
-                        borderRadius: BorderRadius.circular(24),
-                        color: Colors.white,
-                        child: _isSearchExpanded
-                            ? ClipRRect(
+              child: IgnorePointer(
+                ignoring: !_showFloatingButtons,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 300),
+                  opacity: _showFloatingButtons ? 1 : 0,
+                  child: _isSearchExpanded
+                    ? Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
                                 borderRadius: BorderRadius.circular(24),
-                                child: Padding(
-                                  padding: const EdgeInsets.only(left: 16, right: 8),
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.search, color: AppTheme.textSecondary, size: 20),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: TextField(
-                                          controller: _searchCtrl,
-                                          autofocus: true,
-                                          style: const TextStyle(fontSize: 14),
-                                          decoration: const InputDecoration(
-                                            hintText: 'Search...',
-                                            border: InputBorder.none,
-                                            isDense: true,
-                                            enabledBorder: InputBorder.none,
-                                            focusedBorder: InputBorder.none,
-                                            contentPadding: EdgeInsets.zero,
-                                          ),
-                                          onChanged: (v) => setState(() => _searchQuery = v),
-                                        ),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.close, size: 18),
-                                        onPressed: () {
-                                          setState(() {
-                                            _isSearchExpanded = false;
-                                            _searchQuery = '';
-                                            _searchCtrl.clear();
-                                          });
-                                        },
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                      ),
-                                    ],
+                                border: Border.all(color: Colors.grey.shade300),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
                                   ),
-                                ),
-                              )
-                            : InkWell(
-                                onTap: () => setState(() => _isSearchExpanded = true),
-                                borderRadius: BorderRadius.circular(24),
-                                child: Container(
-                                  width: 48,
-                                  height: 48,
-                                  alignment: Alignment.center,
-                                  child: const Icon(Icons.search, color: AppTheme.textPrimary),
-                                ),
+                                ],
                               ),
+                              child: Row(
+                                children: [
+                                  const Padding(
+                                    padding: EdgeInsets.only(left: 12),
+                                    child: Icon(Icons.search, color: AppTheme.textSecondary),
+                                  ),
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _searchCtrl,
+                                      autofocus: true,
+                                      decoration: const InputDecoration(
+                                        hintText: 'Search products...',
+                                        hintStyle: TextStyle(color: AppTheme.textSecondary),
+                                        border: InputBorder.none,
+                                        enabledBorder: InputBorder.none,
+                                        focusedBorder: InputBorder.none,
+                                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                                      ),
+                                      onChanged: (v) => setState(() => _searchQuery = v),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.close, color: AppTheme.textSecondary),
+                                    onPressed: () {
+                                      FocusScope.of(context).unfocus();
+                                      setState(() {
+                                        _isSearchExpanded = false;
+                                        _searchQuery = '';
+                                        _searchCtrl.clear();
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          _buildFloatingCategoryButton(),
+                        ],
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Material(
+                            elevation: 4,
+                            borderRadius: BorderRadius.circular(24),
+                            color: Colors.white,
+                            child: InkWell(
+                              onTap: () => setState(() => _isSearchExpanded = true),
+                              borderRadius: BorderRadius.circular(24),
+                              child: Container(
+                                width: 48,
+                                height: 48,
+                                alignment: Alignment.center,
+                                child: const Icon(Icons.search, color: AppTheme.textPrimary),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          _buildFloatingCategoryButton(),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildFloatingCategoryButton(),
-                  ],
-                ),
               ),
+            ),
             ),
         ],
       ),
@@ -251,9 +286,11 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       data: (categories) {
         if (categories.isEmpty) return const SizedBox();
         return Container(
+          width: 48,
+          height: 48,
           decoration: BoxDecoration(
-            color: _selectedCategoryId != null ? AppTheme.primary : AppTheme.surface,
-            borderRadius: BorderRadius.circular(12),
+            color: _selectedCategoryId != null ? AppTheme.primary : Colors.white,
+            shape: BoxShape.circle,
             border: Border.all(color: _selectedCategoryId != null ? AppTheme.primary : Colors.grey.shade300),
           ),
           child: IconButton(
@@ -414,6 +451,52 @@ class _ProductGrid extends ConsumerWidget {
               'No products found',
               style: TextStyle(color: AppTheme.textSecondary, fontSize: 16),
             ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ProductFormScreen()),
+                  ),
+                  icon: const Icon(Icons.add, size: 20),
+                  label: const Text('Add Product'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    await ref.read(databaseProvider).addSampleProducts();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Row(
+                            children: [
+                              Icon(Icons.check_circle, color: Colors.white, size: 20),
+                              const SizedBox(width: 12),
+                              Text('Sample products added'),
+                            ],
+                          ),
+                          backgroundColor: Color(0xFF2E7D32),
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.inventory, size: 20),
+                  label: const Text('Add Samples'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       );
@@ -439,8 +522,9 @@ class _ProductCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cart = ref.watch(cartProvider);
-    final inCart = cart.items.where((i) => i.product.id == product.id).firstOrNull;
+    final inCart = ref.watch(cartProvider.select((cart) => 
+      cart.items.where((i) => i.product.id == product.id).firstOrNull
+    ));
     final outOfStock = product.stockQty <= 0;
     final maxReached = inCart != null && inCart.qty >= product.stockQty;
 
@@ -464,9 +548,16 @@ class _ProductCard extends ConsumerWidget {
           onTap: outOfStock || maxReached ? () {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(outOfStock ? 'Out of stock' : 'Maximum quantity reached'),
-                backgroundColor: Colors.orange,
+                content: Row(
+                  children: [
+                    Icon(Icons.error, color: Colors.white, size: 20),
+                    const SizedBox(width: 12),
+                    Text(outOfStock ? 'Out of stock' : 'Maximum quantity reached'),
+                  ],
+                ),
+                backgroundColor: Color(0xFFE65100),
                 behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 duration: const Duration(seconds: 1),
               ),
             );
@@ -553,18 +644,21 @@ class _ProductCard extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        product.name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                          color: AppTheme.textPrimary,
-                          height: 1.1,
+                      SizedBox(
+                        height: 16,
+                        child: Text(
+                          product.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                            color: AppTheme.textPrimary,
+                            height: 1.3,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       Text(
                         formatCurrency(product.priceCents),
                         style: const TextStyle(
@@ -806,6 +900,8 @@ class _CartSheetState extends ConsumerState<CartSheet> {
 
   Future<void> _checkout(BuildContext context, String type) async {
     String? customerId;
+    String? photoPath;
+    final enablePhotos = ref.read(settingsProvider).enableTransactionPhotos;
 
     if (type == 'utang') {
       customerId = await _selectOrCreateCustomer(context);
@@ -815,37 +911,98 @@ class _CartSheetState extends ConsumerState<CartSheet> {
       if (proceed != true) return;
     }
 
+    if (enablePhotos) {
+      photoPath = await _showPhotoOption(context);
+    }
+
     final invoice = await ref.read(cartProvider.notifier).checkout(
       type: type,
       customerId: customerId,
       notes: _cashPayerName ?? (_notesCtrl.text.isEmpty ? null : _notesCtrl.text),
       cashReceivedCents: _cashReceivedCents,
       changeCents: _changeCents,
+      photoPath: photoPath,
     );
 
-    if (!context.mounted) return;
+    if (!mounted) return;
+    
+    // Get the root context before popping
+    final rootContext = Navigator.of(context, rootNavigator: true).context;
     Navigator.pop(context);
 
     if (invoice != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      await Future.delayed(const Duration(milliseconds: 150));
+      if (!mounted) return;
+      
+      final snackbar = ScaffoldMessenger.of(rootContext).showSnackBar(
         SnackBar(
-          content: Text('${invoice.invoiceNo} — ${formatCurrency(invoice.totalCents)}'),
-          backgroundColor: Colors.green,
+          content: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white, size: 20),
+              const SizedBox(width: 12),
+              Expanded(child: Text('${invoice.invoiceNo} — ${formatCurrency(invoice.totalCents)}')),
+            ],
+          ),
+          backgroundColor: Color(0xFF2E7D32),
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           action: SnackBarAction(
             label: 'VIEW',
             textColor: Colors.white,
             onPressed: () {
+              ScaffoldMessenger.of(rootContext).hideCurrentSnackBar();
               Navigator.push(
-                context,
+                rootContext,
                 MaterialPageRoute(
                   builder: (_) => InvoiceDetailScreen(invoiceId: invoice.id),
                 ),
-              );
+              ).then((_) {
+                // Ensure snackbar is hidden when returning from invoice detail
+                ScaffoldMessenger.of(rootContext).hideCurrentSnackBar();
+              });
             },
           ),
         ),
       );
+      
+      // Auto-hide snackbar after duration
+      snackbar.closed.then((_) {
+        if (mounted) {
+          ScaffoldMessenger.of(rootContext).clearSnackBars();
+        }
+      });
     }
+  }
+
+  Future<String?> _showPhotoOption(BuildContext context) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Transaction Photo'),
+        content: const Text('Would you like to capture a photo for this transaction?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Skip'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.camera_alt, size: 18),
+            label: const Text('Take Photo'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      final picker = ImagePicker();
+      final photo = await picker.pickImage(source: ImageSource.camera, maxWidth: 1200, maxHeight: 1200);
+      if (photo != null) {
+        return await ImageStorageService.saveProductImage(File(photo.path));
+      }
+    }
+    return null;
   }
 
   Future<bool?> _showCashPaymentDialog(BuildContext context) async {
@@ -865,12 +1022,13 @@ class _CartSheetState extends ConsumerState<CartSheet> {
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          child: Container(
-            color: Colors.white,
-            constraints: const BoxConstraints(maxWidth: 400),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
+          child: SingleChildScrollView(
+            child: Container(
+              color: Colors.white,
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
                   child: Row(
@@ -898,7 +1056,7 @@ class _CartSheetState extends ConsumerState<CartSheet> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Total Amount', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                            const Text('Total Amount', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
                             Text(
                               formatCurrency(cart.totalCents),
                               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
@@ -906,22 +1064,38 @@ class _CartSheetState extends ConsumerState<CartSheet> {
                           ],
                         ),
                         const SizedBox(height: 20),
+                        Row(
+                          children: [
+                            const Text('Cash Received', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                            const Text(' *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.red)),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
                         TextFormField(
                           controller: cashCtrl,
                           autofocus: true,
                           style: const TextStyle(fontSize: 16),
                           decoration: InputDecoration(
-                            labelText: 'Cash Received',
-                            prefixText: '₱ ',
+                            hintText: '0.00',
+                            prefixIcon: Padding(
+                              padding: const EdgeInsets.only(left: 16, right: 8),
+                              child: Center(
+                                widthFactor: 0,
+                                child: Text('₱', style: TextStyle(color: Color(0xFF1A1A1A), fontWeight: FontWeight.w500, fontSize: 16)),
+                              ),
+                            ),
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            errorMaxLines: 2,
                           ),
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
                           validator: (v) {
-                            if (v?.trim().isEmpty ?? true) return 'Required';
+                            if (v?.trim().isEmpty ?? true) return 'Cash received is required';
                             final amount = double.tryParse(v!);
-                            if (amount == null) return 'Invalid amount';
+                            if (amount == null) return 'Please enter a valid amount';
                             final cents = (amount * 100).round();
-                            if (cents < cart.totalCents) return 'Insufficient amount';
+                            if (cents < cart.totalCents) return 'Amount must be at least ${formatCurrency(cart.totalCents)}';
                             return null;
                           },
                           onChanged: (v) {
@@ -974,15 +1148,22 @@ class _CartSheetState extends ConsumerState<CartSheet> {
                           ),
                         ),
                         if (showNameField)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: TextFormField(
-                              controller: nameCtrl,
-                              decoration: InputDecoration(
-                                labelText: 'Customer Name',
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 16),
+                              const Text('Customer Name', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                              const SizedBox(height: 8),
+                              TextFormField(
+                                controller: nameCtrl,
+                                decoration: InputDecoration(
+                                  hintText: 'Enter customer name',
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                  errorMaxLines: 2,
+                                ),
                               ),
-                            ),
+                            ],
                           ),
                         const SizedBox(height: 20),
                         Row(
@@ -1023,6 +1204,7 @@ class _CartSheetState extends ConsumerState<CartSheet> {
                   ),
                 ),
               ],
+              ),
             ),
           ),
         ),
@@ -1116,11 +1298,18 @@ class _CartItemTile extends ConsumerWidget {
                     notifier.updateQty(item.product.id, item.qty + 1);
                   } : () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Cannot exceed available stock'),
-                        backgroundColor: Colors.orange,
-                        duration: Duration(seconds: 1),
+                      SnackBar(
+                        content: Row(
+                          children: [
+                            Icon(Icons.error, color: Colors.white, size: 20),
+                            const SizedBox(width: 12),
+                            Text('Cannot exceed available stock'),
+                          ],
+                        ),
+                        backgroundColor: Color(0xFFE65100),
                         behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        duration: Duration(seconds: 1),
                       ),
                     );
                   },
@@ -1163,7 +1352,7 @@ class _CustomerPickerDialogState extends ConsumerState<_CustomerPickerDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Container(
         color: Colors.white,
-        constraints: const BoxConstraints(maxWidth: 400),
+        constraints: const BoxConstraints(maxWidth: 400, maxHeight: 600),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1187,28 +1376,48 @@ class _CustomerPickerDialogState extends ConsumerState<_CustomerPickerDialog> {
               child: _creating
                   ? Padding(
                       padding: const EdgeInsets.all(20),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            TextFormField(
-                              controller: _nameCtrl,
-                              decoration: InputDecoration(
-                                labelText: 'Customer Name',
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      child: SingleChildScrollView(
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text('Customer Name', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                                  const Text(' *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.red)),
+                                ],
                               ),
-                              validator: (v) => v?.trim().isEmpty ?? true ? 'Name is required' : null,
-                            ),
-                            const SizedBox(height: 12),
-                            TextField(
-                              controller: _phoneCtrl,
-                              decoration: InputDecoration(
-                                labelText: 'Phone (optional)',
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              const SizedBox(height: 8),
+                              TextFormField(
+                                controller: _nameCtrl,
+                                decoration: InputDecoration(
+                                  hintText: 'Enter customer name',
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                  errorMaxLines: 2,
+                                ),
+                                autovalidateMode: AutovalidateMode.onUserInteraction,
+                                validator: (v) {
+                                  if (v?.trim().isEmpty ?? true) return 'Customer name is required';
+                                  if (v!.trim().length > 30) return 'Name must be 30 characters or less';
+                                  return null;
+                                },
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 16),
+                              const Text('Phone (optional)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _phoneCtrl,
+                                decoration: InputDecoration(
+                                  hintText: 'Enter phone number',
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     )
@@ -1240,7 +1449,11 @@ class _CustomerPickerDialogState extends ConsumerState<_CustomerPickerDialog> {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(c.name, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),
+                                        Text(c.name, 
+                                          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                         const SizedBox(height: 4),
                                         Text(
                                           'Balance: ${formatCurrency(c.balanceCents)}',

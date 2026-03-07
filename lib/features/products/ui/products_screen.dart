@@ -1,8 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../app/providers.dart';
 import '../../../core/utils/currency.dart';
 import '../../../data/db/app_database.dart';
+import '../../settings/ui/settings_screen.dart';
 import '../state/products_provider.dart';
 import 'product_form_screen.dart';
 import 'stock_adjustment_screen.dart';
@@ -23,6 +25,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen>
   String _searchQuery = '';
   String? _selectedCategoryId;
   bool _showFloatingButtons = false;
+  bool _isSearchExpanded = false;
 
   @override
   void initState() {
@@ -32,10 +35,14 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen>
   }
 
   void _onScroll() {
-    if (_scrollController.offset > 50 && !_showFloatingButtons) {
-      setState(() => _showFloatingButtons = true);
-    } else if (_scrollController.offset <= 50 && _showFloatingButtons) {
-      setState(() => _showFloatingButtons = false);
+    final offset = _scrollController.offset;
+    final shouldShow = offset > 50;
+    
+    if (shouldShow != _showFloatingButtons) {
+      setState(() {
+        _showFloatingButtons = shouldShow;
+        if (shouldShow) _isSearchExpanded = false;
+      });
     }
   }
 
@@ -60,14 +67,12 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen>
             onPressed: () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const CategoriesScreen())),
           ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen())),
+          ),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'All Products'),
-            Tab(text: 'Low Stock'),
-          ],
-        ),
       ),
       body: Stack(
         children: [
@@ -88,8 +93,16 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen>
                         Expanded(
                           child: Container(
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF8F9FA),
-                              borderRadius: BorderRadius.circular(12),
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: Colors.grey.shade300),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.08),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
                             ),
                             child: TextField(
                               controller: _searchCtrl,
@@ -98,13 +111,17 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen>
                                 hintStyle: TextStyle(color: Color(0xFF6B7280)),
                                 prefixIcon: Icon(Icons.search, color: Color(0xFF6B7280)),
                                 border: InputBorder.none,
-                                contentPadding: EdgeInsets.only(top: 14, bottom: 14),
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(vertical: 12),
                                 filled: false,
                               ),
                               onChanged: (v) => setState(() => _searchQuery = v),
                             ),
                           ),
                         ),
+                        const SizedBox(width: 12),
+                        _buildStockFilterDropdown(),
                         const SizedBox(width: 12),
                         _buildCategoryButton(),
                       ],
@@ -113,44 +130,106 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen>
                 ),
               ),
               Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _AllProductsTab(searchQuery: _searchQuery, categoryId: _selectedCategoryId, scrollController: _scrollController),
-                    _LowStockTab(searchQuery: _searchQuery, categoryId: _selectedCategoryId, scrollController: _scrollController),
-                  ],
-                ),
+                child: _tabController.index == 0
+                    ? _AllProductsTab(searchQuery: _searchQuery, categoryId: _selectedCategoryId, scrollController: _scrollController)
+                    : _LowStockTab(searchQuery: _searchQuery, categoryId: _selectedCategoryId, scrollController: _scrollController),
               ),
             ],
           ),
           if (_showFloatingButtons)
             Positioned(
               top: 16,
+              left: 16,
               right: 16,
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 300),
-                opacity: _showFloatingButtons ? 1 : 0,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Material(
-                      elevation: 4,
-                      borderRadius: BorderRadius.circular(24),
-                      color: Colors.white,
-                      child: InkWell(
-                        onTap: () => _showSearchDialog(),
-                        borderRadius: BorderRadius.circular(24),
-                        child: Container(
-                          width: 48,
-                          height: 48,
-                          alignment: Alignment.center,
-                          child: const Icon(Icons.search, color: Color(0xFF1A1A1A)),
+              child: IgnorePointer(
+                ignoring: !_showFloatingButtons,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 300),
+                  opacity: _showFloatingButtons ? 1 : 0,
+                  child: _isSearchExpanded
+                      ? Row(
+                          children: [
+                            Expanded(
+                              child: Container(
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(24),
+                                  border: Border.all(color: Colors.grey.shade300),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.1),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Padding(
+                                      padding: EdgeInsets.only(left: 12),
+                                      child: Icon(Icons.search, color: Color(0xFF6B7280)),
+                                    ),
+                                    Expanded(
+                                      child: TextField(
+                                        controller: _searchCtrl,
+                                        autofocus: true,
+                                        decoration: const InputDecoration(
+                                          hintText: 'Search products...',
+                                          hintStyle: TextStyle(color: Color(0xFF6B7280)),
+                                          border: InputBorder.none,
+                                          enabledBorder: InputBorder.none,
+                                          focusedBorder: InputBorder.none,
+                                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                                        ),
+                                        onChanged: (v) => setState(() => _searchQuery = v),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.close, color: Color(0xFF6B7280)),
+                                      onPressed: () {
+                                        FocusScope.of(context).unfocus();
+                                        setState(() {
+                                          _isSearchExpanded = false;
+                                          _searchQuery = '';
+                                          _searchCtrl.clear();
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            _buildFloatingStockFilterDropdown(),
+                            const SizedBox(width: 12),
+                            _buildFloatingCategoryButton(),
+                          ],
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Material(
+                              elevation: 4,
+                              borderRadius: BorderRadius.circular(24),
+                              color: Colors.white,
+                              child: InkWell(
+                                onTap: () => setState(() => _isSearchExpanded = true),
+                                borderRadius: BorderRadius.circular(24),
+                                child: Container(
+                                  width: 48,
+                                  height: 48,
+                                  alignment: Alignment.center,
+                                  child: const Icon(Icons.search, color: Color(0xFF1A1A1A)),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            _buildFloatingStockFilterDropdown(),
+                            const SizedBox(width: 12),
+                            _buildFloatingCategoryButton(),
+                          ],
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildFloatingCategoryButton(),
-                  ],
                 ),
               ),
             ),
@@ -165,6 +244,135 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen>
     );
   }
 
+  Widget _buildStockFilterDropdown() {
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: _tabController.index == 1 ? const Color(0xFF2D5F3F) : Colors.white,
+        shape: BoxShape.circle,
+        border: Border.all(color: _tabController.index == 1 ? const Color(0xFF2D5F3F) : Colors.grey.shade300),
+      ),
+      child: Center(
+        child: IconButton(
+          icon: Icon(
+            _tabController.index == 0 ? Icons.inventory_2 : Icons.warning_amber_rounded,
+            color: _tabController.index == 1 ? Colors.white : const Color(0xFF1A1A1A),
+            size: 22,
+          ),
+          tooltip: 'Stock filter',
+          onPressed: _showStockFilterPicker,
+          padding: EdgeInsets.zero,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFloatingStockFilterDropdown() {
+    return Material(
+      elevation: 4,
+      borderRadius: BorderRadius.circular(24),
+      color: _tabController.index == 1 ? const Color(0xFF2D5F3F) : Colors.white,
+      child: InkWell(
+        onTap: _showStockFilterPicker,
+        borderRadius: BorderRadius.circular(24),
+        child: Container(
+          width: 48,
+          height: 48,
+          alignment: Alignment.center,
+          child: Icon(
+            _tabController.index == 0 ? Icons.inventory_2 : Icons.warning_amber_rounded,
+            color: _tabController.index == 1 ? Colors.white : const Color(0xFF1A1A1A),
+            size: 22,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showStockFilterPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                const Text('Stock Filter', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
+          ),
+          Divider(height: 1, color: Colors.grey.shade200),
+          ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: _tabController.index == 0 ? const Color(0xFF2D5F3F).withOpacity(0.1) : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.grid_view_rounded,
+                color: _tabController.index == 0 ? const Color(0xFF2D5F3F) : const Color(0xFF6B7280),
+              ),
+            ),
+            title: const Text('All Products', style: TextStyle(fontWeight: FontWeight.w500)),
+            subtitle: const Text('Show all inventory items', style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+            selected: _tabController.index == 0,
+            selectedTileColor: const Color(0xFF2D5F3F).withOpacity(0.05),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            onTap: () {
+              setState(() => _tabController.index = 0);
+              Navigator.pop(ctx);
+            },
+          ),
+          ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: _tabController.index == 1 ? const Color(0xFF2D5F3F).withOpacity(0.1) : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.warning_amber_rounded,
+                color: _tabController.index == 1 ? const Color(0xFF2D5F3F) : const Color(0xFF6B7280),
+              ),
+            ),
+            title: const Text('Low Stock', style: TextStyle(fontWeight: FontWeight.w500)),
+            subtitle: const Text('Items below threshold', style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+            selected: _tabController.index == 1,
+            selectedTileColor: const Color(0xFF2D5F3F).withOpacity(0.05),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            onTap: () {
+              setState(() => _tabController.index = 1);
+              Navigator.pop(ctx);
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCategoryButton() {
     final categoriesAsync = ref.watch(categoriesProvider);
     return categoriesAsync.when(
@@ -173,9 +381,11 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen>
       data: (categories) {
         if (categories.isEmpty) return const SizedBox();
         return Container(
+          width: 48,
+          height: 48,
           decoration: BoxDecoration(
-            color: _selectedCategoryId != null ? const Color(0xFF2D5F3F) : const Color(0xFFF8F9FA),
-            borderRadius: BorderRadius.circular(12),
+            color: _selectedCategoryId != null ? const Color(0xFF2D5F3F) : Colors.white,
+            shape: BoxShape.circle,
             border: Border.all(color: _selectedCategoryId != null ? const Color(0xFF2D5F3F) : Colors.grey.shade300),
           ),
           child: IconButton(
@@ -217,55 +427,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen>
           ),
         );
       },
-    );
-  }
-
-  void _showSearchDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Container(
-          color: Colors.white,
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: _searchCtrl,
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: 'Search products...',
-                  prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onChanged: (v) => setState(() => _searchQuery = v),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () {
-                      _searchCtrl.clear();
-                      setState(() => _searchQuery = '');
-                      Navigator.pop(ctx);
-                    },
-                    child: const Text('Clear'),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Done'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -423,13 +584,21 @@ class _LowStockTab extends ConsumerWidget {
             : filtered.where((p) => p.categoryId == categoryId).toList();
 
         if (categoryFiltered.isEmpty) {
-          return const Center(
+          return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SizedBox(height: 12),
-                Text('All stock levels look good!',
-                    style: TextStyle(color: Colors.green, fontWeight: FontWeight.w600)),
+                Icon(Icons.check_circle_outline, size: 80, color: Colors.green.shade300),
+                const SizedBox(height: 16),
+                const Text(
+                  'All Stock Levels Look Good!',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF1A1A1A)),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'No products are below their stock threshold',
+                  style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                ),
               ],
             ),
           );
@@ -445,6 +614,101 @@ class _ProductList extends ConsumerWidget {
   final bool highlightLowStock;
   final ScrollController scrollController;
   const _ProductList({required this.products, this.highlightLowStock = false, required this.scrollController});
+
+  void _showProductOptions(BuildContext context, WidgetRef ref, Product product) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                Text(product.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
+                const SizedBox(height: 4),
+                Text(formatCurrency(product.priceCents), style: const TextStyle(color: Color(0xFF6B7280))),
+              ],
+            ),
+          ),
+          Divider(height: 1, color: Colors.grey.shade200),
+          ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2D5F3F).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.edit_outlined, color: Color(0xFF2D5F3F)),
+            ),
+            title: const Text('Edit Product'),
+            onTap: () {
+              Navigator.pop(ctx);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => ProductFormScreen(product: product)));
+            },
+          ),
+          ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.delete_outline, color: Colors.red),
+            ),
+            title: const Text('Delete Product', style: TextStyle(color: Colors.red)),
+            onTap: () {
+              Navigator.pop(ctx);
+              _confirmDelete(context, ref, product);
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context, WidgetRef ref, Product product) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Product'),
+        content: Text('Are you sure you want to delete "${product.name}"? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await ref.read(databaseProvider).productsDao.softDeleteProduct(product.id);
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('${product.name} deleted'), backgroundColor: Colors.green),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -479,11 +743,7 @@ class _ProductList extends ConsumerWidget {
             color: Colors.transparent,
             child: InkWell(
               borderRadius: BorderRadius.circular(16),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => ProductFormScreen(product: p)),
-              ),
+              onLongPress: () => _showProductOptions(context, ref, p),
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Row(
@@ -491,84 +751,80 @@ class _ProductList extends ConsumerWidget {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(12),
                       child: SizedBox(
-                        width: 64,
-                        height: 64,
+                        width: 72,
+                        height: 72,
                         child: p.imagePath != null
                             ? Image.file(File(p.imagePath!), fit: BoxFit.cover)
                             : Container(
                                 color: const Color(0xFFF8F9FA),
-                                child: Icon(Icons.inventory_2_outlined, color: Colors.grey[400], size: 32),
+                                child: Icon(Icons.inventory_2_outlined, color: Colors.grey[400], size: 36),
                               ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  p.name,
-                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Color(0xFF1A1A1A)),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              GestureDetector(
-                                onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) => StockAdjustmentScreen(product: p)),
-                                ),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF2D5F3F).withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: const Text(
-                                    'Adjust',
-                                    style: TextStyle(fontSize: 11, color: Color(0xFF2D5F3F), fontWeight: FontWeight.w600),
-                                  ),
-                                ),
-                              ),
-                            ],
+                          Text(
+                            p.name,
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Color(0xFF1A1A1A)),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            formatCurrency(p.priceCents),
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF2D5F3F)),
                           ),
                           const SizedBox(height: 6),
                           Row(
                             children: [
-                              Text(
-                                formatCurrency(p.priceCents),
-                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF2D5F3F)),
-                              ),
-                              const SizedBox(width: 8),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
                                   color: stockColor.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(6),
                                   border: Border.all(color: stockColor.withOpacity(0.3)),
                                 ),
-                                child: Text(
-                                  isOut ? 'Out of stock' : 'Stock: ${p.stockQty}',
-                                  style: TextStyle(
-                                      color: stockColor, fontWeight: FontWeight.w600, fontSize: 11),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(_getUnitIcon(p.unit), size: 12, color: stockColor),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      isOut ? 'Out of stock' : '${p.stockQty} ${p.unit}',
+                                      style: TextStyle(color: stockColor, fontWeight: FontWeight.w600, fontSize: 11),
+                                    ),
+                                  ],
                                 ),
                               ),
+                              if (p.barcode != null)
+                                const SizedBox(width: 8),
+                              if (p.barcode != null)
+                                Flexible(
+                                  child: Text(
+                                    'SKU: ${p.barcode}',
+                                    style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
                             ],
                           ),
-                          if (p.barcode != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                'SKU: ${p.barcode}',
-                                style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
-                              ),
-                            ),
                         ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.tune, color: Color(0xFF2D5F3F), size: 22),
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => StockAdjustmentScreen(product: p)),
+                      ),
+                      tooltip: 'Adjust Stock',
+                      style: IconButton.styleFrom(
+                        backgroundColor: const Color(0xFF2D5F3F).withOpacity(0.1),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                     ),
                   ],
@@ -581,3 +837,26 @@ class _ProductList extends ConsumerWidget {
     );
   }
 }
+
+
+  IconData _getUnitIcon(String unit) {
+    switch (unit.toLowerCase()) {
+      case 'pc':
+      case 'pack':
+        return Icons.inventory_2;
+      case 'box':
+        return Icons.inventory;
+      case 'bottle':
+        return Icons.local_drink;
+      case 'can':
+        return Icons.coffee;
+      case 'kg':
+      case 'g':
+        return Icons.scale;
+      case 'l':
+      case 'ml':
+        return Icons.water_drop;
+      default:
+        return Icons.inventory_2;
+    }
+  }

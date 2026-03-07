@@ -95,6 +95,7 @@ class CartNotifier extends Notifier<CartState> {
     String? notes,
     int? cashReceivedCents,
     int? changeCents,
+    String? photoPath,
   }) async {
     if (state.items.isEmpty) return null;
     
@@ -122,6 +123,7 @@ class CartNotifier extends Notifier<CartState> {
       cashReceivedCents: Value(cashReceivedCents),
       changeCents: Value(changeCents),
       notes: Value(notes),
+      photoPath: Value(photoPath),
       createdAt: Value(now),
     );
 

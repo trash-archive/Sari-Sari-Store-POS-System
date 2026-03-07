@@ -49,7 +49,8 @@ class AppDatabase extends _$AppDatabase {
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async {
       await m.createAll();
-      await _seedData();
+      await _seedCategories();
+      await _seedProducts();
     },
     onUpgrade: (m, from, to) async {
       if (from < 2) {
@@ -59,104 +60,154 @@ class AppDatabase extends _$AppDatabase {
     },
   );
 
-  Future<void> _seedData() async {
-    // Seed default categories
+  Future<void> _seedCategories() async {
     final defaultCategories = [
       'Beverages', 'Snacks', 'Canned Goods', 'Personal Care',
       'Condiments', 'Dairy', 'Bread & Bakery', 'Others',
     ];
 
-    final categoryIds = <String, String>{};
     for (final name in defaultCategories) {
       final id = DateTime.now().microsecondsSinceEpoch.toString() + name.hashCode.toString();
       await into(categories).insert(CategoriesCompanion(
         id: Value(id),
         name: Value(name),
       ));
-      categoryIds[name] = id;
     }
+  }
 
-    // Seed sample products
+  Future<void> _seedProducts() async {
+    final cats = await select(categories).get();
+    final catMap = {for (var c in cats) c.name: c.id};
+
     final sampleProducts = [
       // Beverages
-      {'name': 'Coca-Cola 1.5L', 'category': 'Beverages', 'price': 65.00, 'cost': 50.00, 'stock': 24, 'unit': 'btl'},
-      {'name': 'Sprite 1.5L', 'category': 'Beverages', 'price': 65.00, 'cost': 50.00, 'stock': 18, 'unit': 'btl'},
-      {'name': 'Royal 1.5L', 'category': 'Beverages', 'price': 65.00, 'cost': 50.00, 'stock': 15, 'unit': 'btl'},
-      {'name': 'C2 Green Tea 1L', 'category': 'Beverages', 'price': 35.00, 'cost': 28.00, 'stock': 30, 'unit': 'btl'},
-      {'name': 'Zest-O Orange 200ml', 'category': 'Beverages', 'price': 12.00, 'cost': 9.00, 'stock': 48, 'unit': 'pc'},
-      {'name': 'Nescafe 3-in-1 Original', 'category': 'Beverages', 'price': 8.00, 'cost': 6.50, 'stock': 100, 'unit': 'sachet'},
-      {'name': 'Milo Sachet', 'category': 'Beverages', 'price': 10.00, 'cost': 8.00, 'stock': 80, 'unit': 'sachet'},
+      {'name': 'Coca-Cola 330ml', 'price': 2500, 'stock': 50, 'category': 'Beverages', 'unit': 'bottle'},
+      {'name': 'Sprite 330ml', 'price': 2500, 'stock': 45, 'category': 'Beverages', 'unit': 'bottle'},
+      {'name': 'Royal 330ml', 'price': 2500, 'stock': 40, 'category': 'Beverages', 'unit': 'bottle'},
+      {'name': 'C2 Green Tea', 'price': 2000, 'stock': 30, 'category': 'Beverages', 'unit': 'bottle'},
+      {'name': 'Zesto Orange', 'price': 1500, 'stock': 25, 'category': 'Beverages', 'unit': 'bottle'},
       
       // Snacks
-      {'name': 'Chippy BBQ', 'category': 'Snacks', 'price': 8.00, 'cost': 6.00, 'stock': 50, 'unit': 'pc'},
-      {'name': 'Piattos Cheese', 'category': 'Snacks', 'price': 15.00, 'cost': 12.00, 'stock': 40, 'unit': 'pc'},
-      {'name': 'Nova', 'category': 'Snacks', 'price': 8.00, 'cost': 6.00, 'stock': 45, 'unit': 'pc'},
-      {'name': 'Skyflakes Crackers', 'category': 'Snacks', 'price': 35.00, 'cost': 28.00, 'stock': 20, 'unit': 'pack'},
-      {'name': 'Oishi Prawn Crackers', 'category': 'Snacks', 'price': 8.00, 'cost': 6.00, 'stock': 60, 'unit': 'pc'},
-      {'name': 'Clover Chips', 'category': 'Snacks', 'price': 8.00, 'cost': 6.00, 'stock': 35, 'unit': 'pc'},
-      {'name': 'Peanuts Garlic', 'category': 'Snacks', 'price': 5.00, 'cost': 3.50, 'stock': 70, 'unit': 'pack'},
+      {'name': 'Chippy BBQ', 'price': 1000, 'stock': 60, 'category': 'Snacks', 'unit': 'pack'},
+      {'name': 'Piattos Cheese', 'price': 1200, 'stock': 55, 'category': 'Snacks', 'unit': 'pack'},
+      {'name': 'Nova Multigrain', 'price': 800, 'stock': 70, 'category': 'Snacks', 'unit': 'pack'},
+      {'name': 'Richeese Nabati', 'price': 500, 'stock': 80, 'category': 'Snacks', 'unit': 'pack'},
+      {'name': 'Boy Bawang', 'price': 600, 'stock': 65, 'category': 'Snacks', 'unit': 'pack'},
       
       // Canned Goods
-      {'name': 'Century Tuna Flakes', 'category': 'Canned Goods', 'price': 35.00, 'cost': 28.00, 'stock': 30, 'unit': 'can'},
-      {'name': 'Argentina Corned Beef', 'category': 'Canned Goods', 'price': 45.00, 'cost': 38.00, 'stock': 25, 'unit': 'can'},
-      {'name': 'Ligo Sardines Red', 'category': 'Canned Goods', 'price': 25.00, 'cost': 20.00, 'stock': 40, 'unit': 'can'},
-      {'name': '555 Sardines Green', 'category': 'Canned Goods', 'price': 22.00, 'cost': 18.00, 'stock': 35, 'unit': 'can'},
-      {'name': 'Mega Sardines', 'category': 'Canned Goods', 'price': 18.00, 'cost': 14.00, 'stock': 50, 'unit': 'can'},
-      {'name': 'CDO Liver Spread', 'category': 'Canned Goods', 'price': 28.00, 'cost': 22.00, 'stock': 20, 'unit': 'can'},
+      {'name': 'Century Tuna Flakes', 'price': 3500, 'stock': 35, 'category': 'Canned Goods', 'unit': 'can'},
+      {'name': 'Ligo Sardines', 'price': 2800, 'stock': 40, 'category': 'Canned Goods', 'unit': 'can'},
+      {'name': 'CDO Corned Beef', 'price': 4500, 'stock': 25, 'category': 'Canned Goods', 'unit': 'can'},
+      {'name': 'Argentina Corned Beef', 'price': 3800, 'stock': 30, 'category': 'Canned Goods', 'unit': 'can'},
       
       // Personal Care
-      {'name': 'Safeguard Bar Soap', 'category': 'Personal Care', 'price': 35.00, 'cost': 28.00, 'stock': 30, 'unit': 'pc'},
-      {'name': 'Palmolive Shampoo Sachet', 'category': 'Personal Care', 'price': 8.00, 'cost': 6.00, 'stock': 100, 'unit': 'sachet'},
-      {'name': 'Colgate Toothpaste 50g', 'category': 'Personal Care', 'price': 45.00, 'cost': 38.00, 'stock': 15, 'unit': 'pc'},
-      {'name': 'Close-Up Toothpaste', 'category': 'Personal Care', 'price': 42.00, 'cost': 35.00, 'stock': 18, 'unit': 'pc'},
-      {'name': 'Head & Shoulders Sachet', 'category': 'Personal Care', 'price': 10.00, 'cost': 8.00, 'stock': 80, 'unit': 'sachet'},
-      {'name': 'Tide Detergent Powder 50g', 'category': 'Personal Care', 'price': 12.00, 'cost': 9.00, 'stock': 60, 'unit': 'pack'},
+      {'name': 'Safeguard Soap', 'price': 2200, 'stock': 45, 'category': 'Personal Care', 'unit': 'bar'},
+      {'name': 'Colgate Toothpaste', 'price': 3500, 'stock': 20, 'category': 'Personal Care', 'unit': 'tube'},
+      {'name': 'Head & Shoulders', 'price': 1500, 'stock': 15, 'category': 'Personal Care', 'unit': 'sachet'},
+      {'name': 'Close Up Toothpaste', 'price': 3200, 'stock': 18, 'category': 'Personal Care', 'unit': 'tube'},
       
       // Condiments
-      {'name': 'Silver Swan Soy Sauce 385ml', 'category': 'Condiments', 'price': 28.00, 'cost': 22.00, 'stock': 20, 'unit': 'btl'},
-      {'name': 'Datu Puti Vinegar 385ml', 'category': 'Condiments', 'price': 22.00, 'cost': 18.00, 'stock': 25, 'unit': 'btl'},
-      {'name': 'UFC Banana Catsup 320g', 'category': 'Condiments', 'price': 35.00, 'cost': 28.00, 'stock': 18, 'unit': 'btl'},
-      {'name': 'Mama Sita Oyster Sauce', 'category': 'Condiments', 'price': 32.00, 'cost': 26.00, 'stock': 15, 'unit': 'btl'},
-      {'name': 'Ajinomoto Umami Seasoning', 'category': 'Condiments', 'price': 8.00, 'cost': 6.00, 'stock': 50, 'unit': 'pack'},
-      {'name': 'Magic Sarap 8g', 'category': 'Condiments', 'price': 5.00, 'cost': 3.50, 'stock': 100, 'unit': 'sachet'},
+      {'name': 'Silver Swan Soy Sauce', 'price': 2800, 'stock': 25, 'category': 'Condiments', 'unit': 'bottle'},
+      {'name': 'Datu Puti Vinegar', 'price': 2500, 'stock': 30, 'category': 'Condiments', 'unit': 'bottle'},
+      {'name': 'UFC Banana Catsup', 'price': 3200, 'stock': 20, 'category': 'Condiments', 'unit': 'bottle'},
+      {'name': 'Maggi Magic Sarap', 'price': 800, 'stock': 50, 'category': 'Condiments', 'unit': 'sachet'},
       
       // Dairy
-      {'name': 'Alaska Evap Milk 370ml', 'category': 'Dairy', 'price': 55.00, 'cost': 45.00, 'stock': 24, 'unit': 'can'},
-      {'name': 'Bear Brand 300ml', 'category': 'Dairy', 'price': 48.00, 'cost': 40.00, 'stock': 30, 'unit': 'can'},
-      {'name': 'Nestle Fresh Milk 1L', 'category': 'Dairy', 'price': 85.00, 'cost': 72.00, 'stock': 12, 'unit': 'pack'},
-      {'name': 'Eden Cheese 165g', 'category': 'Dairy', 'price': 75.00, 'cost': 62.00, 'stock': 10, 'unit': 'pc'},
-      {'name': 'Anchor Butter 200g', 'category': 'Dairy', 'price': 120.00, 'cost': 100.00, 'stock': 8, 'unit': 'pc'},
+      {'name': 'Alaska Milk', 'price': 4500, 'stock': 15, 'category': 'Dairy', 'unit': 'can'},
+      {'name': 'Bear Brand Milk', 'price': 2200, 'stock': 25, 'category': 'Dairy', 'unit': 'can'},
+      {'name': 'Eden Cheese', 'price': 8500, 'stock': 10, 'category': 'Dairy', 'unit': 'pack'},
       
       // Bread & Bakery
-      {'name': 'Gardenia Classic White Bread', 'category': 'Bread & Bakery', 'price': 55.00, 'cost': 45.00, 'stock': 15, 'unit': 'loaf'},
-      {'name': 'Gardenia Wheat Bread', 'category': 'Bread & Bakery', 'price': 60.00, 'cost': 50.00, 'stock': 12, 'unit': 'loaf'},
-      {'name': 'Pandesal 10pcs', 'category': 'Bread & Bakery', 'price': 35.00, 'cost': 25.00, 'stock': 20, 'unit': 'pack'},
-      {'name': 'Rebisco Crackers', 'category': 'Bread & Bakery', 'price': 25.00, 'cost': 20.00, 'stock': 30, 'unit': 'pack'},
+      {'name': 'Gardenia Bread', 'price': 5500, 'stock': 12, 'category': 'Bread & Bakery', 'unit': 'loaf'},
+      {'name': 'Pandesal', 'price': 300, 'stock': 50, 'category': 'Bread & Bakery', 'unit': 'piece'},
+      {'name': 'Skyflakes Crackers', 'price': 2800, 'stock': 20, 'category': 'Bread & Bakery', 'unit': 'pack'},
       
       // Others
-      {'name': 'Lucky Me Pancit Canton', 'category': 'Others', 'price': 15.00, 'cost': 12.00, 'stock': 60, 'unit': 'pack'},
-      {'name': 'Payless Instant Noodles', 'category': 'Others', 'price': 8.00, 'cost': 6.00, 'stock': 80, 'unit': 'pack'},
-      {'name': 'Egg Medium Size', 'category': 'Others', 'price': 8.00, 'cost': 6.50, 'stock': 60, 'unit': 'pc'},
-      {'name': 'Rice 1kg', 'category': 'Others', 'price': 55.00, 'cost': 48.00, 'stock': 50, 'unit': 'kg'},
-      {'name': 'Cooking Oil 1L', 'category': 'Others', 'price': 85.00, 'cost': 72.00, 'stock': 20, 'unit': 'btl'},
-      {'name': 'White Sugar 1kg', 'category': 'Others', 'price': 65.00, 'cost': 55.00, 'stock': 25, 'unit': 'kg'},
-      {'name': 'Iodized Salt 1kg', 'category': 'Others', 'price': 25.00, 'cost': 20.00, 'stock': 30, 'unit': 'kg'},
+      {'name': 'Lucky Me Pancit Canton', 'price': 1200, 'stock': 100, 'category': 'Others', 'unit': 'pack'},
+      {'name': 'Rice (Bigas)', 'price': 5500, 'stock': 8, 'category': 'Others', 'unit': 'kg'},
+      {'name': 'Eggs', 'price': 800, 'stock': 60, 'category': 'Others', 'unit': 'piece'},
+      {'name': 'Cooking Oil', 'price': 12000, 'stock': 5, 'category': 'Others', 'unit': 'bottle'},
     ];
 
     for (final product in sampleProducts) {
-      final catId = categoryIds[product['category'] as String];
-      if (catId != null) {
-        await into(products).insert(ProductsCompanion(
-          id: Value(DateTime.now().microsecondsSinceEpoch.toString() + product['name'].hashCode.toString()),
-          name: Value(product['name'] as String),
-          categoryId: Value(catId),
-          priceCents: Value(((product['price'] as double) * 100).round()),
-          costCents: Value(((product['cost'] as double) * 100).round()),
-          stockQty: Value(product['stock'] as int),
-          unit: Value(product['unit'] as String),
-          lowStockThreshold: Value(10),
-        ));
-      }
+      final id = DateTime.now().microsecondsSinceEpoch.toString() + product['name'].hashCode.toString();
+      await into(products).insert(ProductsCompanion(
+        id: Value(id),
+        name: Value(product['name'] as String),
+        priceCents: Value(product['price'] as int),
+        stockQty: Value(product['stock'] as int),
+        categoryId: Value(catMap[product['category']]!),
+        unit: Value(product['unit'] as String),
+        lowStockThreshold: const Value(5),
+      ));
+    }
+  }
+
+  Future<void> addSampleProducts() async {
+    final cats = await select(categories).get();
+    final catMap = {for (var c in cats) c.name: c.id};
+
+    final sampleProducts = [
+      // Beverages
+      {'name': 'Coca-Cola 330ml', 'price': 2500, 'stock': 50, 'category': 'Beverages', 'unit': 'bottle'},
+      {'name': 'Sprite 330ml', 'price': 2500, 'stock': 45, 'category': 'Beverages', 'unit': 'bottle'},
+      {'name': 'Royal 330ml', 'price': 2500, 'stock': 40, 'category': 'Beverages', 'unit': 'bottle'},
+      {'name': 'C2 Green Tea', 'price': 2000, 'stock': 30, 'category': 'Beverages', 'unit': 'bottle'},
+      {'name': 'Zesto Orange', 'price': 1500, 'stock': 25, 'category': 'Beverages', 'unit': 'bottle'},
+      
+      // Snacks
+      {'name': 'Chippy BBQ', 'price': 1000, 'stock': 60, 'category': 'Snacks', 'unit': 'pack'},
+      {'name': 'Piattos Cheese', 'price': 1200, 'stock': 55, 'category': 'Snacks', 'unit': 'pack'},
+      {'name': 'Nova Multigrain', 'price': 800, 'stock': 70, 'category': 'Snacks', 'unit': 'pack'},
+      {'name': 'Richeese Nabati', 'price': 500, 'stock': 80, 'category': 'Snacks', 'unit': 'pack'},
+      {'name': 'Boy Bawang', 'price': 600, 'stock': 65, 'category': 'Snacks', 'unit': 'pack'},
+      
+      // Canned Goods
+      {'name': 'Century Tuna Flakes', 'price': 3500, 'stock': 35, 'category': 'Canned Goods', 'unit': 'can'},
+      {'name': 'Ligo Sardines', 'price': 2800, 'stock': 40, 'category': 'Canned Goods', 'unit': 'can'},
+      {'name': 'CDO Corned Beef', 'price': 4500, 'stock': 25, 'category': 'Canned Goods', 'unit': 'can'},
+      {'name': 'Argentina Corned Beef', 'price': 3800, 'stock': 30, 'category': 'Canned Goods', 'unit': 'can'},
+      
+      // Personal Care
+      {'name': 'Safeguard Soap', 'price': 2200, 'stock': 45, 'category': 'Personal Care', 'unit': 'bar'},
+      {'name': 'Colgate Toothpaste', 'price': 3500, 'stock': 20, 'category': 'Personal Care', 'unit': 'tube'},
+      {'name': 'Head & Shoulders', 'price': 1500, 'stock': 15, 'category': 'Personal Care', 'unit': 'sachet'},
+      {'name': 'Close Up Toothpaste', 'price': 3200, 'stock': 18, 'category': 'Personal Care', 'unit': 'tube'},
+      
+      // Condiments
+      {'name': 'Silver Swan Soy Sauce', 'price': 2800, 'stock': 25, 'category': 'Condiments', 'unit': 'bottle'},
+      {'name': 'Datu Puti Vinegar', 'price': 2500, 'stock': 30, 'category': 'Condiments', 'unit': 'bottle'},
+      {'name': 'UFC Banana Catsup', 'price': 3200, 'stock': 20, 'category': 'Condiments', 'unit': 'bottle'},
+      {'name': 'Maggi Magic Sarap', 'price': 800, 'stock': 50, 'category': 'Condiments', 'unit': 'sachet'},
+      
+      // Dairy
+      {'name': 'Alaska Milk', 'price': 4500, 'stock': 15, 'category': 'Dairy', 'unit': 'can'},
+      {'name': 'Bear Brand Milk', 'price': 2200, 'stock': 25, 'category': 'Dairy', 'unit': 'can'},
+      {'name': 'Eden Cheese', 'price': 8500, 'stock': 10, 'category': 'Dairy', 'unit': 'pack'},
+      
+      // Bread & Bakery
+      {'name': 'Gardenia Bread', 'price': 5500, 'stock': 12, 'category': 'Bread & Bakery', 'unit': 'loaf'},
+      {'name': 'Pandesal', 'price': 300, 'stock': 50, 'category': 'Bread & Bakery', 'unit': 'piece'},
+      {'name': 'Skyflakes Crackers', 'price': 2800, 'stock': 20, 'category': 'Bread & Bakery', 'unit': 'pack'},
+      
+      // Others
+      {'name': 'Lucky Me Pancit Canton', 'price': 1200, 'stock': 100, 'category': 'Others', 'unit': 'pack'},
+      {'name': 'Rice (Bigas)', 'price': 5500, 'stock': 8, 'category': 'Others', 'unit': 'kg'},
+      {'name': 'Eggs', 'price': 800, 'stock': 60, 'category': 'Others', 'unit': 'piece'},
+      {'name': 'Cooking Oil', 'price': 12000, 'stock': 5, 'category': 'Others', 'unit': 'bottle'},
+    ];
+
+    for (final product in sampleProducts) {
+      final id = DateTime.now().microsecondsSinceEpoch.toString() + product['name'].hashCode.toString();
+      await into(products).insert(ProductsCompanion(
+        id: Value(id),
+        name: Value(product['name'] as String),
+        priceCents: Value(product['price'] as int),
+        stockQty: Value(product['stock'] as int),
+        categoryId: Value(catMap[product['category']]!),
+        unit: Value(product['unit'] as String),
+        lowStockThreshold: const Value(5),
+      ));
     }
   }
 

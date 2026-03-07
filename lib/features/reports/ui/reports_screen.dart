@@ -5,6 +5,7 @@ import '../../../core/utils/date_utils.dart';
 import 'package:drift/drift.dart' hide Column;
 import '../../../app/providers.dart';
 import '../../../data/db/daos/reports_dao.dart';
+import '../../settings/ui/settings_screen.dart';
 
 class ReportsScreen extends ConsumerStatefulWidget {
   const ReportsScreen({super.key});
@@ -109,6 +110,11 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _load,
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen())),
           ),
         ],
       ),

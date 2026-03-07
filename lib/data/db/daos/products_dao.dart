@@ -23,13 +23,32 @@ class ProductsDao extends DatabaseAccessor<AppDatabase> with _$ProductsDaoMixin 
   Future<void> deleteCategory(String id) =>
       (delete(db.categories)..where((t) => t.id.equals(id))).go();
 
+  Future<int> getProductCountByCategory(String categoryId) async {
+    final result = await (selectOnly(db.products)
+      ..addColumns([db.products.id.count()])
+      ..where(db.products.categoryId.equals(categoryId) & db.products.isActive.equals(true))
+    ).getSingle();
+    return result.read(db.products.id.count()) ?? 0;
+  }
+
   // Products
   Future<List<Product>> getAllProducts() =>
       (select(db.products)..where((p) => p.isActive.equals(true))).get();
 
-  Stream<List<Product>> watchAllProducts() =>
-      (select(db.products)..where((p) => p.isActive.equals(true))
-        ..orderBy([(p) => OrderingTerm.asc(p.name)])).watch();
+  Stream<List<Product>> watchAllProducts() {
+    return (select(db.products)..where((p) => p.isActive.equals(true)))
+      .watch()
+      .map((products) {
+        products.sort((a, b) {
+          // Out of stock products go to bottom
+          if (a.stockQty <= 0 && b.stockQty > 0) return 1;
+          if (a.stockQty > 0 && b.stockQty <= 0) return -1;
+          // Both in stock or both out of stock, sort by updatedAt descending
+          return b.updatedAt.compareTo(a.updatedAt);
+        });
+        return products;
+      });
+  }
 
   Stream<List<Product>> watchLowStockProducts() {
     return customSelect(
@@ -49,8 +68,10 @@ class ProductsDao extends DatabaseAccessor<AppDatabase> with _$ProductsDaoMixin 
   Future<String> insertProduct(ProductsCompanion data) =>
       into(db.products).insertReturning(data).then((p) => p.id);
 
-  Future<void> updateProduct(ProductsCompanion data) =>
-      update(db.products).replace(data);
+  Future<void> updateProduct(ProductsCompanion data) {
+    final updatedData = data.copyWith(updatedAt: Value(DateTime.now()));
+    return update(db.products).replace(updatedData);
+  }
 
   Future<void> updateStock(String productId, int newQty) =>
       (update(db.products)..where((p) => p.id.equals(productId)))
