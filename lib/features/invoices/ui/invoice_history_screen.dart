@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:drift/drift.dart' hide Column;
 import '../../../core/utils/currency.dart';
 import '../../../core/utils/date_utils.dart';
 import '../../../app/providers.dart';
@@ -9,7 +10,8 @@ import '../../settings/ui/settings_screen.dart';
 import 'invoice_detail_screen.dart';
 
 final invoiceHistoryProvider = StreamProvider<List<Invoice>>((ref) {
-  return ref.watch(databaseProvider).invoicesDao.watchAllInvoices();
+  return (ref.watch(databaseProvider).select(ref.watch(databaseProvider).invoices)
+    ..orderBy([(i) => OrderingTerm.desc(i.createdAt)])).watch();
 });
 
 class InvoiceHistoryScreen extends ConsumerStatefulWidget {
@@ -184,10 +186,13 @@ class _InvoiceTile extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(
+          color: isVoided ? Colors.red.shade300 : Colors.grey.shade200,
+          width: isVoided ? 2 : 1,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: isVoided ? Colors.red.withOpacity(0.1) : Colors.black.withOpacity(0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -261,30 +266,6 @@ class _InvoiceTile extends ConsumerWidget {
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
                         color: isVoided ? Colors.grey.shade600 : AppTheme.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: isVoided
-                            ? Colors.grey.shade200
-                            : isUtang
-                                ? Colors.orange.shade100
-                                : Colors.green.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        isVoided ? 'VOIDED' : isUtang ? 'UTANG' : 'CASH',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: isVoided
-                              ? Colors.grey.shade600
-                              : isUtang
-                                  ? Colors.orange.shade700
-                                  : Colors.green.shade700,
-                        ),
                       ),
                     ),
                   ],

@@ -100,29 +100,34 @@ class InvoiceDetailScreen extends ConsumerWidget {
                           color: AppTheme.primary.withOpacity(0.05),
                           borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                         ),
-                        child: Column(
-                          children: [
-                            Icon(Icons.store, size: 32, color: AppTheme.primary),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'TindaKo',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              'SALES RECEIPT',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.textSecondary,
-                                letterSpacing: 1.2,
-                              ),
-                            ),
-                          ],
+                        child: Consumer(
+                          builder: (context, ref, _) {
+                            final storeName = ref.watch(settingsProvider).storeName;
+                            return Column(
+                              children: [
+                                Icon(Icons.store, size: 32, color: AppTheme.primary),
+                                const SizedBox(height: 8),
+                                Text(
+                                  storeName,
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  inv.type == 'payment' ? 'PAYMENT RECEIPT' : 'SALES RECEIPT',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textSecondary,
+                                    letterSpacing: 1.2,
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
                         ),
                       ),
                       
@@ -164,7 +169,7 @@ class InvoiceDetailScreen extends ConsumerWidget {
                             if (data.customer != null)
                               const SizedBox(height: 4),
                             if (data.customer != null)
-                              _ReceiptRow('Customer:', data.customer!.name, overflow: true),
+                              _ReceiptRow('Customer:', data.customer!.name),
                             if (inv.notes != null)
                               const SizedBox(height: 4),
                             if (inv.notes != null)
@@ -177,132 +182,166 @@ class InvoiceDetailScreen extends ConsumerWidget {
                             const SizedBox(height: 16),
                             
                             // Items Header
-                            const Row(
-                              children: [
-                                Expanded(
-                                  flex: 3,
-                                  child: Text(
-                                    'ITEM',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.textSecondary,
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: 40,
-                                  child: Text(
-                                    'QTY',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.textSecondary,
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: 60,
-                                  child: Text(
-                                    'PRICE',
-                                    textAlign: TextAlign.right,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.textSecondary,
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: 70,
-                                  child: Text(
-                                    'TOTAL',
-                                    textAlign: TextAlign.right,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.textSecondary,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            
-                            // Items
-                            ...data.items.map((item) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                            if (data.items.isNotEmpty)
+                              const Row(
                                 children: [
                                   Expanded(
                                     flex: 3,
                                     child: Text(
-                                      '${item.productNameSnapshot} (${item.unitSnapshot})',
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        color: AppTheme.textPrimary,
+                                      'ITEM',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.textSecondary,
                                       ),
                                     ),
                                   ),
                                   SizedBox(
                                     width: 40,
                                     child: Text(
-                                      '${item.qty}',
+                                      'QTY',
                                       textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        color: AppTheme.textPrimary,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.textSecondary,
                                       ),
                                     ),
                                   ),
                                   SizedBox(
                                     width: 60,
                                     child: Text(
-                                      formatCurrency(item.priceSnapshotCents),
+                                      'PRICE',
                                       textAlign: TextAlign.right,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        color: AppTheme.textPrimary,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.textSecondary,
                                       ),
                                     ),
                                   ),
                                   SizedBox(
                                     width: 70,
                                     child: Text(
-                                      formatCurrency(item.lineTotalCents),
+                                      'TOTAL',
                                       textAlign: TextAlign.right,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppTheme.textPrimary,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.textSecondary,
                                       ),
                                     ),
                                   ),
                                 ],
                               ),
-                            )),
+                            if (data.items.isNotEmpty)
+                              const SizedBox(height: 8),
                             
-                            const SizedBox(height: 16),
-                            _DashedLine(),
-                            const SizedBox(height: 16),
+                            // Items
+                            if (data.items.isNotEmpty)
+                              ...data.items.map((item) => Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      flex: 3,
+                                      child: Text(
+                                        '${item.productNameSnapshot} (${item.unitSnapshot})',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: AppTheme.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: 40,
+                                      child: Text(
+                                        '${item.qty}',
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: AppTheme.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: 60,
+                                      child: Text(
+                                        formatCurrency(item.priceSnapshotCents),
+                                        textAlign: TextAlign.right,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: AppTheme.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: 70,
+                                      child: Text(
+                                        formatCurrency(item.lineTotalCents),
+                                        textAlign: TextAlign.right,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppTheme.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )),
+                            
+                            if (data.items.isNotEmpty)
+                              const SizedBox(height: 16),
+                            if (data.items.isNotEmpty)
+                              _DashedLine(),
+                            if (data.items.isNotEmpty)
+                              const SizedBox(height: 16),
                             
                             // Totals
-                            if (inv.discountCents > 0)
-                              _ReceiptRow('Discount:', '- ${formatCurrency(inv.discountCents)}', valueColor: Colors.green.shade700),
-                            if (inv.discountCents > 0)
+                            if (inv.type == 'payment')
+                              _ReceiptRow('Payment Amount:', formatCurrency(inv.totalCents), bold: true, fontSize: 18, valueColor: Colors.green.shade700),
+                            if (inv.type == 'payment')
                               const SizedBox(height: 8),
-                            _ReceiptRow('TOTAL:', formatCurrency(inv.totalCents), bold: true, fontSize: 18),
+                            if (inv.type == 'payment' && data.customer != null)
+                              _ReceiptRow('Remaining Balance:', formatCurrency(data.customer!.balanceCents), valueColor: data.customer!.balanceCents > 0 ? Colors.red.shade700 : Colors.green.shade700),
                             
-                            if (inv.type == 'cash' && inv.cashReceivedCents != null)
+                            if (inv.type != 'payment' && inv.discountCents > 0)
+                              _ReceiptRow('Discount:', '- ${formatCurrency(inv.discountCents)}', valueColor: Colors.green.shade700),
+                            if (inv.type != 'payment' && inv.discountCents > 0)
+                              const SizedBox(height: 8),
+                            if (inv.type != 'payment')
+                              _ReceiptRow('TOTAL:', formatCurrency(inv.totalCents), bold: true, fontSize: 18),
+                            
+                            if (inv.cashReceivedCents != null)
                               const SizedBox(height: 12),
-                            if (inv.type == 'cash' && inv.cashReceivedCents != null)
+                            if (inv.cashReceivedCents != null)
                               _DashedLine(),
-                            if (inv.type == 'cash' && inv.cashReceivedCents != null)
+                            if (inv.cashReceivedCents != null)
                               const SizedBox(height: 12),
-                            if (inv.type == 'cash' && inv.cashReceivedCents != null)
+                            if (inv.cashReceivedCents != null)
                               _ReceiptRow('Cash Received:', formatCurrency(inv.cashReceivedCents!)),
+                            if (inv.type == 'cash' && inv.cashReceivedCents != null && inv.cashReceivedCents! < inv.totalCents && data.customer != null) ...[
+                              const SizedBox(height: 4),
+                              _ReceiptRow(
+                                '${data.customer!.name} (Utang):',
+                                formatCurrency(inv.totalCents - inv.cashReceivedCents!),
+                                valueColor: Colors.orange.shade700,
+                              ),
+                              const SizedBox(height: 8),
+                              Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: Text(
+                                  'Remaining balance added to customer account',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey.shade600,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ),
+                            ],
                             if (inv.changeCents != null && inv.changeCents! > 0)
                               const SizedBox(height: 4),
                             if (inv.changeCents != null && inv.changeCents! > 0)

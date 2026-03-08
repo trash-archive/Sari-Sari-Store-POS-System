@@ -97,12 +97,21 @@ class InvoicesDao extends DatabaseAccessor<AppDatabase> with _$InvoicesDaoMixin 
         }
       }
 
-      // Reduce customer balance
-      if (invoice.customerId != null && invoice.type == 'utang') {
+      // Handle customer balance
+      if (invoice.customerId != null) {
         final customer = await (select(db.customers)
           ..where((c) => c.id.equals(invoice.customerId!))).getSingleOrNull();
         if (customer != null) {
-          final newBalance = (customer.balanceCents - invoice.totalCents).clamp(0, 999999999);
+          int newBalance;
+          if (invoice.type == 'utang') {
+            // Reduce balance for voided utang
+            newBalance = (customer.balanceCents - invoice.totalCents).clamp(0, 999999999);
+          } else if (invoice.type == 'payment') {
+            // Increase balance for voided payment
+            newBalance = customer.balanceCents + invoice.totalCents;
+          } else {
+            newBalance = customer.balanceCents;
+          }
           await (update(db.customers)..where((c) => c.id.equals(customer.id)))
             .write(CustomersCompanion(
               balanceCents: Value(newBalance),

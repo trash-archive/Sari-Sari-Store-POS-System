@@ -115,6 +115,12 @@ class ProductsNotifier extends Notifier<void> {
   }
 
   Future<void> addCategory(String name) async {
+    // Check for duplicate category name
+    final existing = await _db.productsDao.getAllCategories();
+    if (existing.any((c) => c.name.toLowerCase() == name.toLowerCase())) {
+      throw Exception('Category with this name already exists');
+    }
+    
     await _db.productsDao.insertCategory(CategoriesCompanion(
       id: Value(_uuid.v4()),
       name: Value(name),
@@ -122,6 +128,12 @@ class ProductsNotifier extends Notifier<void> {
   }
 
   Future<void> updateCategory(String id, String name) async {
+    // Check for duplicate category name (excluding current category)
+    final existing = await _db.productsDao.getAllCategories();
+    if (existing.any((c) => c.name.toLowerCase() == name.toLowerCase() && c.id != id)) {
+      throw Exception('Category with this name already exists');
+    }
+    
     await _db.productsDao.updateCategory(CategoriesCompanion(
       id: Value(id),
       name: Value(name),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -16,6 +17,8 @@ class PdfService {
     String storeName = 'Sari-sari Store',
   }) async {
     final doc = pw.Document();
+    final logoImage = await rootBundle.load('assets/images/logo.png');
+    final logo = pw.MemoryImage(logoImage.buffer.asUint8List());
 
     doc.addPage(
       pw.Page(
@@ -28,6 +31,8 @@ class PdfService {
             pw.Center(
               child: pw.Column(
                 children: [
+                  pw.Image(logo, width: 50, height: 50),
+                  pw.SizedBox(height: 4),
                   pw.Text(storeName,
                       style: pw.TextStyle(
                           fontSize: 18, fontWeight: pw.FontWeight.bold)),
@@ -130,6 +135,8 @@ class PdfService {
     String storeName = 'Sari-sari Store',
   }) async {
     final doc = pw.Document();
+    final logoImage = await rootBundle.load('assets/images/logo.png');
+    final logo = pw.MemoryImage(logoImage.buffer.asUint8List());
 
     doc.addPage(
       pw.MultiPage(
@@ -140,11 +147,15 @@ class PdfService {
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-                pw.Text(storeName,
-                    style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
-                pw.Text('Account Statement',
-                    style: const pw.TextStyle(fontSize: 13)),
+              pw.Row(children: [
+                pw.Image(logo, width: 40, height: 40),
+                pw.SizedBox(width: 8),
+                pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                  pw.Text(storeName,
+                      style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+                  pw.Text('Account Statement',
+                      style: const pw.TextStyle(fontSize: 13)),
+                ]),
               ]),
               pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
                 pw.Text(customer.name,

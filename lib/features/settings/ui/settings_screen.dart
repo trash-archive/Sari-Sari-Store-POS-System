@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/providers.dart';
+import '../../../app/theme.dart';
 import '../../../data/services/backup_service.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -11,123 +12,510 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  late TextEditingController _storeNameCtrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _storeNameCtrl = TextEditingController(
-        text: ref.read(settingsProvider).storeName);
-  }
-
-  @override
-  void dispose() {
-    _storeNameCtrl.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.w600)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+      ),
       body: ListView(
+        padding: const EdgeInsets.all(20),
         children: [
-          // ─── Store Info ─────────────────────────────────────────────────────
-          _SectionHeader('Store'),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
+          // Store Info Card
+          _buildCard(
+            title: 'Store Information',
+            icon: Icons.store_outlined,
+            iconColor: AppTheme.primary,
+            child: Column(
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _storeNameCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Store Name',
-                      hintText: 'e.g. Aling Nena\'s Store',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () {
-                    ref
-                        .read(settingsNotifierProvider.notifier)
-                        .setStoreName(_storeNameCtrl.text);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Store name saved')),
-                    );
-                  },
-                  child: const Text('Save'),
+                _buildActionTile(
+                  icon: Icons.edit_outlined,
+                  iconColor: AppTheme.primary,
+                  title: 'Store Details',
+                  subtitle: settings.storeName.isEmpty 
+                      ? 'Set your store name and address'
+                      : settings.storeName,
+                  onTap: () => _showStoreDetailsDialog(context),
                 ),
               ],
             ),
           ),
 
-          // ─── Features ───────────────────────────────────────────────────────
-          _SectionHeader('Features'),
-          SwitchListTile(
-            secondary: const Icon(Icons.money_off_outlined),
-            title: const Text('Allow Overpayment'),
-            subtitle: const Text('Let balance go negative (advance payment)'),
-            value: settings.allowNegativeBalance,
-            onChanged: (v) => ref
-                .read(settingsNotifierProvider.notifier)
-                .toggleNegativeBalance(v),
-          ),
-          SwitchListTile(
-            secondary: const Icon(Icons.camera_alt_outlined),
-            title: const Text('Transaction Photos'),
-            subtitle: const Text('Optionally capture photo during checkout'),
-            value: settings.enableTransactionPhotos,
-            onChanged: (v) => ref
-                .read(settingsNotifierProvider.notifier)
-                .toggleTransactionPhotos(v),
+          const SizedBox(height: 16),
+
+          // Features Card
+          _buildCard(
+            title: 'Features',
+            icon: Icons.tune_outlined,
+            iconColor: Colors.blue,
+            child: Column(
+              children: [
+                _buildSwitchTile(
+                  icon: Icons.money_off_outlined,
+                  title: 'Allow Overpayment',
+                  subtitle: 'Let balance go negative (advance payment)',
+                  value: settings.allowNegativeBalance,
+                  onChanged: (v) => ref
+                      .read(settingsNotifierProvider.notifier)
+                      .toggleNegativeBalance(v),
+                ),
+                Divider(height: 1, color: Colors.grey.shade200),
+                _buildSwitchTile(
+                  icon: Icons.camera_alt_outlined,
+                  title: 'Transaction Photos',
+                  subtitle: 'Capture photo during checkout',
+                  value: settings.enableTransactionPhotos,
+                  onChanged: (v) => ref
+                      .read(settingsNotifierProvider.notifier)
+                      .toggleTransactionPhotos(v),
+                ),
+              ],
+            ),
           ),
 
-          _SectionHeader('Backup & Restore'),
-          ListTile(
-            leading: const Icon(Icons.backup_outlined, color: Colors.blue),
-            title: const Text('Backup Database'),
-            subtitle: const Text('Save a copy to Downloads folder'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => _doBackup(context),
-          ),
-          ListTile(
-            leading: const Icon(Icons.restore_outlined, color: Colors.orange),
-            title: const Text('Restore from Backup'),
-            subtitle: const Text('⚠️ Current data will be replaced'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => _showRestoreWarning(context),
-          ),
-          ListTile(
-            leading: const Icon(Icons.table_chart_outlined, color: Colors.green),
-            title: const Text('Export Products CSV'),
-            subtitle: const Text('Export product list as spreadsheet'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => _exportCsv(context, ref),
+          const SizedBox(height: 16),
+
+          // Data Management Card
+          _buildCard(
+            title: 'Data Management',
+            icon: Icons.folder_outlined,
+            iconColor: Colors.orange,
+            child: Column(
+              children: [
+                _buildActionTile(
+                  icon: Icons.backup_outlined,
+                  iconColor: Colors.blue,
+                  title: 'Backup Database',
+                  subtitle: 'Save a copy to Downloads',
+                  onTap: () => _doBackup(context),
+                ),
+                Divider(height: 1, color: Colors.grey.shade200),
+                _buildActionTile(
+                  icon: Icons.restore_outlined,
+                  iconColor: Colors.orange,
+                  title: 'Restore from Backup',
+                  subtitle: 'Current data will be replaced',
+                  onTap: () => _showRestoreWarning(context),
+                ),
+                Divider(height: 1, color: Colors.grey.shade200),
+                _buildActionTile(
+                  icon: Icons.table_chart_outlined,
+                  iconColor: Colors.green,
+                  title: 'Export Products CSV',
+                  subtitle: 'Export as spreadsheet',
+                  onTap: () => _exportCsv(context, ref),
+                ),
+              ],
+            ),
           ),
 
-          // ─── About ──────────────────────────────────────────────────────────
-          _SectionHeader('About'),
-          const ListTile(
-            leading: Icon(Icons.info_outline),
-            title: Text('Sari POS'),
-            subtitle: Text('Version 1.0.0 · 100% Offline · Made for sari-sari stores'),
+          const SizedBox(height: 16),
+
+          // About Card
+          _buildCard(
+            title: 'About',
+            icon: Icons.info_outline,
+            iconColor: Colors.purple,
+            child: Column(
+              children: [
+                _buildInfoTile(
+                  icon: Icons.storefront,
+                  title: 'TindaKo',
+                  subtitle: 'Version 1.0.0',
+                ),
+                Divider(height: 1, color: Colors.grey.shade200),
+                _buildInfoTile(
+                  icon: Icons.code_outlined,
+                  title: 'Developer',
+                  subtitle: 'Hasim Tordios · htordios@gmail.com',
+                ),
+              ],
+            ),
           ),
-          const ListTile(
-            leading: Icon(Icons.storage_outlined),
-            title: Text('Database'),
-            subtitle: Text('SQLite (Drift) · All data stored on this device'),
-          ),
-          const ListTile(
-            leading: Icon(Icons.image_outlined),
-            title: Text('Product Images'),
-            subtitle: Text('Powered by Open Food Facts · CC BY-SA 3.0'),
+
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCard({
+    required String title,
+    required IconData icon,
+    required Color iconColor,
+    required Widget child,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: iconColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, color: iconColor, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Divider(height: 1, color: Colors.grey.shade200),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: child,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSwitchTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 20, color: AppTheme.textSecondary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: AppTheme.primary,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionTile({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: iconColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, size: 20, color: iconColor),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 20, color: AppTheme.textSecondary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showStoreDetailsDialog(BuildContext context) {
+    final settings = ref.read(settingsProvider);
+    final nameCtrl = TextEditingController(text: settings.storeName);
+    final addressCtrl = TextEditingController(text: settings.storeAddress ?? '');
+
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          color: Colors.white,
+          constraints: const BoxConstraints(maxWidth: 400),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(Icons.store, color: AppTheme.primary, size: 24),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Store Details',
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Store Name *',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: InputDecoration(
+                        hintText: 'Enter store name',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Address (Optional)',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: addressCtrl,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        hintText: 'Enter store address',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              final name = nameCtrl.text.trim();
+                              if (name.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Row(
+                                      children: [
+                                        Icon(Icons.error, color: Colors.white, size: 20),
+                                        const SizedBox(width: 12),
+                                        Text('Store name is required'),
+                                      ],
+                                    ),
+                                    backgroundColor: Colors.red,
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+                              
+                              ref.read(settingsNotifierProvider.notifier).setStoreName(name);
+                              ref.read(settingsNotifierProvider.notifier).setStoreAddress(addressCtrl.text.trim());
+                              
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Row(
+                                    children: [
+                                      Icon(Icons.check_circle, color: Colors.white, size: 20),
+                                      const SizedBox(width: 12),
+                                      Text('Store details saved'),
+                                    ],
+                                  ),
+                                  backgroundColor: Color(0xFF2E7D32),
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('Save'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -138,21 +526,78 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (mounted) {
         showDialog(
           context: context,
-          builder: (_) => AlertDialog(
-            title: const Text('Backup Complete'),
-            content: Text('Database backed up to:\n\n$path'),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('OK')),
-            ],
+          builder: (_) => Dialog(
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            child: Container(
+              color: Colors.white,
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade50,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.check_circle, color: Colors.green.shade600, size: 48),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Backup Complete',
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Database backed up to:\n\n$path',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                        ),
+                        const SizedBox(height: 20),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('OK'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Backup failed: $e'), backgroundColor: Colors.red));
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white, size: 20),
+                const SizedBox(width: 12),
+                Expanded(child: Text('Backup failed: $e')),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        );
       }
     }
   }
@@ -160,32 +605,90 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void _showRestoreWarning(BuildContext context) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Restore Database'),
-        content: const Text(
-          '⚠️ This will REPLACE all current data with the backup.\n\n'
-          'Make sure to backup first before restoring.\n\n'
-          'The app will close after restoring — please reopen it manually.',
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
-          ElevatedButton(
-            style:
-                ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                      'To restore: copy your .sqlite backup file to the app folder then call BackupService.restore(path)'),
+      builder: (_) => Dialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          color: Colors.white,
+          constraints: const BoxConstraints(maxWidth: 400),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.warning_amber, color: Colors.orange.shade600, size: 48),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Restore Database',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'This will REPLACE all current data with the backup.\n\nMake sure to backup first before restoring.\n\nThe app will close after restoring — please reopen it manually.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: () {
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text(
+                                    'To restore: copy your .sqlite backup file to the app folder then call BackupService.restore(path)',
+                                  ),
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              );
+                            },
+                            child: const Text('I Understand'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              );
-            },
-            child: const Text('I Understand'),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -215,37 +718,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       final path = await BackupService.exportProductsCsv(rows);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('CSV exported to: $path')),
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white, size: 20),
+                const SizedBox(width: 12),
+                Expanded(child: Text('CSV exported to: $path')),
+              ],
+            ),
+            backgroundColor: Color(0xFF2E7D32),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text('Export failed: $e'),
-                backgroundColor: Colors.red));
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white, size: 20),
+                const SizedBox(width: 12),
+                Expanded(child: Text('Export failed: $e')),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        );
       }
     }
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  const _SectionHeader(this.title);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 6),
-      child: Text(
-        title.toUpperCase(),
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
-          color: Theme.of(context).colorScheme.primary,
-          letterSpacing: 1.2,
-        ),
-      ),
-    );
   }
 }

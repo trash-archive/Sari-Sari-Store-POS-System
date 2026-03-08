@@ -15,18 +15,21 @@ final imageStorageProvider =
 
 class AppSettings {
   final String storeName;
+  final String? storeAddress;
   final bool allowNegativeBalance;
   final bool enableTransactionPhotos;
 
   const AppSettings({
     this.storeName = 'My Sari-sari Store',
+    this.storeAddress,
     this.allowNegativeBalance = false,
     this.enableTransactionPhotos = false,
   });
 
-  AppSettings copyWith({String? storeName, bool? allowNegativeBalance, bool? enableTransactionPhotos}) =>
+  AppSettings copyWith({String? storeName, String? storeAddress, bool? allowNegativeBalance, bool? enableTransactionPhotos}) =>
       AppSettings(
         storeName: storeName ?? this.storeName,
+        storeAddress: storeAddress ?? this.storeAddress,
         allowNegativeBalance: allowNegativeBalance ?? this.allowNegativeBalance,
         enableTransactionPhotos: enableTransactionPhotos ?? this.enableTransactionPhotos,
       );
@@ -36,7 +39,12 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   SettingsNotifier() : super(const AppSettings());
 
   void setStoreName(String name) {
-    state = state.copyWith(storeName: name.trim().isEmpty ? 'My Sari-sari Store' : name.trim());
+    if (name.trim().isEmpty) return; // Don't allow empty store name
+    state = state.copyWith(storeName: name.trim());
+  }
+
+  void setStoreAddress(String address) {
+    state = state.copyWith(storeAddress: address.trim().isEmpty ? null : address.trim());
   }
 
   void toggleNegativeBalance(bool allow) {

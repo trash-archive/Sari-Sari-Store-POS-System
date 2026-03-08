@@ -156,6 +156,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
     final notesCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
     double? changeDue;
+    String? photoPath;
 
     showDialog(
       context: context,
@@ -272,6 +273,21 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                           border: OutlineInputBorder(),
                         ),
                       ),
+                      if (ref.read(settingsProvider).enableTransactionPhotos) ...[
+                        const SizedBox(height: 16),
+                        OutlinedButton.icon(
+                          onPressed: () async {
+                            final imgService = ref.read(imageStorageProvider);
+                            final path = await imgService.captureTransactionPhoto();
+                            setState(() => photoPath = path);
+                          },
+                          icon: Icon(photoPath != null ? Icons.check_circle : Icons.camera_alt),
+                          label: Text(photoPath != null ? 'Photo captured' : 'Capture photo (optional)'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: photoPath != null ? Colors.green : null,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 24),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
@@ -286,46 +302,43 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                               if (!formKey.currentState!.validate()) return;
                               final amountPaid = double.parse(amountPaidCtrl.text);
                               final amountPaidCents = (amountPaid * 100).round();
-                              final paymentAmount = amountPaidCents > customer.balanceCents 
-                                  ? customer.balanceCents 
-                                  : amountPaidCents;
                               
-                              await ref.read(customersNotifierProvider.notifier).recordPayment(
+                              final invoiceId = await ref.read(customersNotifierProvider.notifier).recordPayment(
                                 customerId: customer.id,
-                                amountCents: paymentAmount,
+                                amountCents: amountPaidCents,
                                 notes: notesCtrl.text.isEmpty ? null : notesCtrl.text,
+                                cashReceivedCents: amountPaidCents,
+                                photoPath: photoPath,
                               );
                               
                               if (ctx.mounted) Navigator.pop(ctx);
                               ref.invalidate(customerDetailProvider(customer.id));
                               
                               if (context.mounted) {
+                                final actualPayment = amountPaidCents > customer.balanceCents ? customer.balanceCents : amountPaidCents;
+                                final change = amountPaidCents > actualPayment ? amountPaidCents - actualPayment : 0;
+                                
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Row(
-                                      children: [
-                                        Icon(Icons.check_circle, color: Colors.white, size: 20),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Text('Payment recorded: ${formatCurrency(paymentAmount)}'),
-                                              if (changeDue != null && changeDue! > 0)
-                                                Text(
-                                                  'Change due: ${formatCurrency((changeDue! * 100).round())}',
-                                                  style: const TextStyle(fontSize: 12),
-                                                ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
+                                    content: Text(
+                                      'Payment recorded: ${formatCurrency(actualPayment)}${change > 0 ? '\nChange: ${formatCurrency(change)}' : ''}',
                                     ),
                                     backgroundColor: const Color(0xFF2E7D32),
                                     behavior: SnackBarBehavior.floating,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                    duration: const Duration(seconds: 4),
+                                    duration: const Duration(seconds: 3),
+                                    action: SnackBarAction(
+                                      label: 'View',
+                                      textColor: Colors.white,
+                                      onPressed: () {
+                                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => InvoiceDetailScreen(invoiceId: invoiceId),
+                                          ),
+                                        );
+                                      },
+                                    ),
                                   ),
                                 );
                               }
@@ -345,12 +358,17 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
     );
   }
 
-  void _editCustomer(BuildContext context, Customer customer) {
+  void _editCustomer(BuildContext context, Customer customer) async {
     final nameCtrl = TextEditingController(text: customer.name);
     final phoneCtrl = TextEditingController(text: customer.phone ?? '');
     final addressCtrl = TextEditingController(text: customer.address ?? '');
     final notesCtrl = TextEditingController(text: customer.notes ?? '');
     final formKey = GlobalKey<FormState>();
+    
+    // Fetch all customers for duplicate validation
+    final allCustomers = await ref.read(databaseProvider).customersDao.searchCustomers('');
+
+    if (!context.mounted) return;
 
     showDialog(
       context: context,
@@ -408,6 +426,9 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                           validator: (v) {
                             if (v?.trim().isEmpty ?? true) return 'Customer name is required';
                             if (v!.trim().length > 30) return 'Name must be 30 characters or less';
+                            // Check for duplicate (excluding current customer)
+                            final exists = allCustomers.any((c) => c.name.toLowerCase() == v.trim().toLowerCase() && c.id != customer.id);
+                            if (exists) return 'Customer with this name already exists';
                             return null;
                           },
                         ),
@@ -463,15 +484,26 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                               child: ElevatedButton(
                                 onPressed: () async {
                                   if (formKey.currentState!.validate()) {
-                                    await ref.read(customersNotifierProvider.notifier).updateCustomerFields(
-                                      customer: customer,
-                                      name: nameCtrl.text.trim(),
-                                      phone: phoneCtrl.text.isEmpty ? null : phoneCtrl.text.trim(),
-                                      address: addressCtrl.text.isEmpty ? null : addressCtrl.text.trim(),
-                                      notes: notesCtrl.text.isEmpty ? null : notesCtrl.text.trim(),
-                                    );
-                                    if (ctx.mounted) Navigator.pop(ctx);
-                                    ref.invalidate(customerDetailProvider(customer.id));
+                                    try {
+                                      await ref.read(customersNotifierProvider.notifier).updateCustomerFields(
+                                        customer: customer,
+                                        name: nameCtrl.text.trim(),
+                                        phone: phoneCtrl.text.isEmpty ? null : phoneCtrl.text.trim(),
+                                        address: addressCtrl.text.isEmpty ? null : addressCtrl.text.trim(),
+                                        notes: notesCtrl.text.isEmpty ? null : notesCtrl.text.trim(),
+                                      );
+                                      if (ctx.mounted) Navigator.pop(ctx);
+                                      ref.invalidate(customerDetailProvider(customer.id));
+                                    } catch (e) {
+                                      if (ctx.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text(e.toString().replaceAll('Exception: ', '')),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                      }
+                                    }
                                   }
                                 },
                                 style: ElevatedButton.styleFrom(
@@ -692,22 +724,33 @@ class _LedgerList extends ConsumerWidget {
                 ),
               ],
             ),
-            onTap: isInvoice
-                ? () {
-                    // Find invoice by invoiceNo
-                    final inv = (invoicesAsync.valueOrNull ?? [])
-                        .where((inv) => inv.invoiceNo == entry.description)
-                        .firstOrNull;
-                    if (inv != null) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) =>
-                                InvoiceDetailScreen(invoiceId: inv.id)),
-                      );
-                    }
-                  }
-                : null,
+            onTap: () {
+              if (isInvoice) {
+                final inv = (invoicesAsync.valueOrNull ?? [])
+                    .where((inv) => inv.invoiceNo == entry.description)
+                    .firstOrNull;
+                if (inv != null) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) =>
+                            InvoiceDetailScreen(invoiceId: inv.id)),
+                  );
+                }
+              } else if (isPayment) {
+                final payment = (paymentsAsync.valueOrNull ?? [])
+                    .where((p) => (p.notes ?? 'Payment') == entry.description && p.createdAt == entry.date)
+                    .firstOrNull;
+                if (payment?.invoiceId != null) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) =>
+                            InvoiceDetailScreen(invoiceId: payment!.invoiceId!)),
+                  );
+                }
+              }
+            },
           ),
         );
       },

@@ -323,10 +323,15 @@ class _UtangScreenState extends ConsumerState<UtangScreen> {
     );
   }
 
-  void _addCustomerDialog(BuildContext context) {
+  void _addCustomerDialog(BuildContext context) async {
     final nameCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
+    
+    // Fetch all customers for duplicate validation
+    final allCustomers = await ref.read(databaseProvider).customersDao.searchCustomers('');
+    
+    if (!context.mounted) return;
 
     showDialog(
       context: context,
@@ -384,6 +389,9 @@ class _UtangScreenState extends ConsumerState<UtangScreen> {
                         validator: (v) {
                           if (v?.trim().isEmpty ?? true) return 'Customer name is required';
                           if (v!.trim().length > 30) return 'Name must be 30 characters or less';
+                          // Check for duplicate
+                          final exists = allCustomers.any((c) => c.name.toLowerCase() == v.trim().toLowerCase());
+                          if (exists) return 'Customer with this name already exists';
                           return null;
                         },
                       ),
@@ -417,26 +425,38 @@ class _UtangScreenState extends ConsumerState<UtangScreen> {
                             child: ElevatedButton(
                               onPressed: () async {
                                 if (formKey.currentState!.validate()) {
-                                  await ref.read(customersNotifierProvider.notifier).addCustomer(
-                                    name: nameCtrl.text.trim(),
-                                    phone: phoneCtrl.text.isEmpty ? null : phoneCtrl.text.trim(),
-                                  );
-                                  if (ctx.mounted) {
-                                    Navigator.pop(ctx);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Row(
-                                          children: [
-                                            Icon(Icons.check_circle, color: Colors.white, size: 20),
-                                            const SizedBox(width: 12),
-                                            Text('Customer added'),
-                                          ],
-                                        ),
-                                        backgroundColor: Color(0xFF2E7D32),
-                                        behavior: SnackBarBehavior.floating,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                      ),
+                                  try {
+                                    await ref.read(customersNotifierProvider.notifier).addCustomer(
+                                      name: nameCtrl.text.trim(),
+                                      phone: phoneCtrl.text.isEmpty ? null : phoneCtrl.text.trim(),
                                     );
+                                    if (ctx.mounted) {
+                                      Navigator.pop(ctx);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Row(
+                                            children: [
+                                              Icon(Icons.check_circle, color: Colors.white, size: 20),
+                                              const SizedBox(width: 12),
+                                              Text('Customer added'),
+                                            ],
+                                          ),
+                                          backgroundColor: Color(0xFF2E7D32),
+                                          behavior: SnackBarBehavior.floating,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    // This shouldn't happen since we validate inline, but just in case
+                                    if (ctx.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(e.toString().replaceAll('Exception: ', '')),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
                                   }
                                 }
                               },

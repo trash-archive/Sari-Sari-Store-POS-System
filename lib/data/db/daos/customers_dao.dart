@@ -32,6 +32,7 @@ class CustomersDao extends DatabaseAccessor<AppDatabase> with _$CustomersDaoMixi
     required CustomerPaymentsCompanion paymentData,
     required String customerId,
     required int amountCents,
+    String? invoiceId,
   }) async {
     await db.transaction(() async {
       await into(db.customerPayments).insert(paymentData);

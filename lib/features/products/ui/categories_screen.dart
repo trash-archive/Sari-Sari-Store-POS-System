@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/theme.dart';
+import '../../../app/providers.dart';
 import '../../../core/utils/currency.dart';
 import '../state/products_provider.dart';
 
@@ -316,9 +317,14 @@ class CategoriesScreen extends ConsumerWidget {
     }
   }
 
-  void _editCategoryDialog(BuildContext context, WidgetRef ref, category) {
+  void _editCategoryDialog(BuildContext context, WidgetRef ref, category) async {
     final ctrl = TextEditingController(text: category.name);
     final formKey = GlobalKey<FormState>();
+    
+    // Fetch all categories for duplicate validation
+    final allCategories = await ref.read(databaseProvider).productsDao.getAllCategories();
+    
+    if (!context.mounted) return;
     
     showDialog(
       context: context,
@@ -376,6 +382,9 @@ class CategoriesScreen extends ConsumerWidget {
                         validator: (v) {
                           if (v?.trim().isEmpty ?? true) return 'Category name is required';
                           if (v!.trim().length > 30) return 'Category name must be 30 characters or less';
+                          // Check for duplicate (excluding current category)
+                          final exists = allCategories.any((c) => c.name.toLowerCase() == v.trim().toLowerCase() && c.id != category.id);
+                          if (exists) return 'Category with this name already exists';
                           return null;
                         },
                       ),
@@ -397,23 +406,34 @@ class CategoriesScreen extends ConsumerWidget {
                             child: ElevatedButton(
                               onPressed: () async {
                                 if (formKey.currentState!.validate()) {
-                                  await ref.read(productsNotifierProvider.notifier).updateCategory(category.id, ctrl.text.trim());
-                                  if (ctx.mounted) {
-                                    Navigator.pop(ctx);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Row(
-                                          children: [
-                                            Icon(Icons.check_circle, color: Colors.white, size: 20),
-                                            const SizedBox(width: 12),
-                                            Text('Category updated'),
-                                          ],
+                                  try {
+                                    await ref.read(productsNotifierProvider.notifier).updateCategory(category.id, ctrl.text.trim());
+                                    if (ctx.mounted) {
+                                      Navigator.pop(ctx);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Row(
+                                            children: [
+                                              Icon(Icons.check_circle, color: Colors.white, size: 20),
+                                              const SizedBox(width: 12),
+                                              Text('Category updated'),
+                                            ],
+                                          ),
+                                          backgroundColor: Color(0xFF2E7D32),
+                                          behavior: SnackBarBehavior.floating,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                         ),
-                                        backgroundColor: Color(0xFF2E7D32),
-                                        behavior: SnackBarBehavior.floating,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                      ),
-                                    );
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (ctx.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(e.toString().replaceAll('Exception: ', '')),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
                                   }
                                 }
                               },
@@ -437,9 +457,14 @@ class CategoriesScreen extends ConsumerWidget {
     );
   }
 
-  void _addCategoryDialog(BuildContext context, WidgetRef ref) {
+  void _addCategoryDialog(BuildContext context, WidgetRef ref) async {
     final ctrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
+    
+    // Fetch all categories for duplicate validation
+    final allCategories = await ref.read(databaseProvider).productsDao.getAllCategories();
+    
+    if (!context.mounted) return;
     
     showDialog(
       context: context,
@@ -497,27 +522,41 @@ class CategoriesScreen extends ConsumerWidget {
                         validator: (v) {
                           if (v?.trim().isEmpty ?? true) return 'Category name is required';
                           if (v!.trim().length > 30) return 'Category name must be 30 characters or less';
+                          // Check for duplicate
+                          final exists = allCategories.any((c) => c.name.toLowerCase() == v.trim().toLowerCase());
+                          if (exists) return 'Category with this name already exists';
                           return null;
                         },
                         onFieldSubmitted: (v) async {
                           if (formKey.currentState!.validate()) {
-                            await ref.read(productsNotifierProvider.notifier).addCategory(v.trim());
-                            if (ctx.mounted) {
-                              Navigator.pop(ctx);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Row(
-                                    children: [
-                                      Icon(Icons.check_circle, color: Colors.white, size: 20),
-                                      const SizedBox(width: 12),
-                                      Text('Category added'),
-                                    ],
+                            try {
+                              await ref.read(productsNotifierProvider.notifier).addCategory(v.trim());
+                              if (ctx.mounted) {
+                                Navigator.pop(ctx);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Row(
+                                      children: [
+                                        Icon(Icons.check_circle, color: Colors.white, size: 20),
+                                        const SizedBox(width: 12),
+                                        Text('Category added'),
+                                      ],
+                                    ),
+                                    backgroundColor: Color(0xFF2E7D32),
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                   ),
-                                  backgroundColor: Color(0xFF2E7D32),
-                                  behavior: SnackBarBehavior.floating,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                ),
-                              );
+                                );
+                              }
+                            } catch (e) {
+                              if (ctx.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(e.toString().replaceAll('Exception: ', '')),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
                             }
                           }
                         },
@@ -540,23 +579,34 @@ class CategoriesScreen extends ConsumerWidget {
                             child: ElevatedButton(
                               onPressed: () async {
                                 if (formKey.currentState!.validate()) {
-                                  await ref.read(productsNotifierProvider.notifier).addCategory(ctrl.text.trim());
-                                  if (ctx.mounted) {
-                                    Navigator.pop(ctx);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Row(
-                                          children: [
-                                            Icon(Icons.check_circle, color: Colors.white, size: 20),
-                                            const SizedBox(width: 12),
-                                            Text('Category added'),
-                                          ],
+                                  try {
+                                    await ref.read(productsNotifierProvider.notifier).addCategory(ctrl.text.trim());
+                                    if (ctx.mounted) {
+                                      Navigator.pop(ctx);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Row(
+                                            children: [
+                                              Icon(Icons.check_circle, color: Colors.white, size: 20),
+                                              const SizedBox(width: 12),
+                                              Text('Category added'),
+                                            ],
+                                          ),
+                                          backgroundColor: Color(0xFF2E7D32),
+                                          behavior: SnackBarBehavior.floating,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                         ),
-                                        backgroundColor: Color(0xFF2E7D32),
-                                        behavior: SnackBarBehavior.floating,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                      ),
-                                    );
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (ctx.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(e.toString().replaceAll('Exception: ', '')),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
                                   }
                                 }
                               },

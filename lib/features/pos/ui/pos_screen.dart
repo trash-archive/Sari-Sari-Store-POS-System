@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:drift/drift.dart' hide Column;
 import '../../../app/providers.dart';
 import '../../../app/theme.dart';
 import '../../../core/utils/currency.dart';
@@ -907,8 +908,12 @@ class _CartSheetState extends ConsumerState<CartSheet> {
       customerId = await _selectOrCreateCustomer(context);
       if (customerId == null) return;
     } else if (type == 'cash') {
-      final proceed = await _showCashPaymentDialog(context);
-      if (proceed != true) return;
+      final result = await _showCashPaymentDialog(context);
+      if (result == null || result == false) return;
+      // Get customerId from partial payment if applicable
+      if (result is Map && result['customerId'] != null) {
+        customerId = result['customerId'];
+      }
     }
 
     if (enablePhotos) {
@@ -1005,7 +1010,7 @@ class _CartSheetState extends ConsumerState<CartSheet> {
     return null;
   }
 
-  Future<bool?> _showCashPaymentDialog(BuildContext context) async {
+  Future<dynamic> _showCashPaymentDialog(BuildContext context) async {
     final cart = ref.read(cartProvider);
     final cashCtrl = TextEditingController();
     final nameCtrl = TextEditingController();
@@ -1013,6 +1018,9 @@ class _CartSheetState extends ConsumerState<CartSheet> {
     int changeCents = 0;
     int cashReceivedCents = 0;
     bool showNameField = false;
+    bool isPartialPayment = false;
+    String? selectedCustomerId;
+    String? selectedCustomerName;
 
     final result = await showDialog<Map<String, dynamic>?>(
       context: context,
@@ -1095,7 +1103,7 @@ class _CartSheetState extends ConsumerState<CartSheet> {
                             final amount = double.tryParse(v!);
                             if (amount == null) return 'Please enter a valid amount';
                             final cents = (amount * 100).round();
-                            if (cents < cart.totalCents) return 'Amount must be at least ${formatCurrency(cart.totalCents)}';
+                            if (cents <= 0) return 'Amount must be greater than zero';
                             return null;
                           },
                           onChanged: (v) {
@@ -1104,12 +1112,19 @@ class _CartSheetState extends ConsumerState<CartSheet> {
                               final cents = (amount * 100).round();
                               setState(() {
                                 cashReceivedCents = cents;
-                                changeCents = (cents - cart.totalCents).clamp(0, 999999999);
+                                if (cents >= cart.totalCents) {
+                                  changeCents = cents - cart.totalCents;
+                                  isPartialPayment = false;
+                                } else {
+                                  changeCents = 0;
+                                  isPartialPayment = true;
+                                }
                               });
                             } else {
                               setState(() {
                                 cashReceivedCents = 0;
                                 changeCents = 0;
+                                isPartialPayment = false;
                               });
                             }
                           },
@@ -1128,26 +1143,71 @@ class _CartSheetState extends ConsumerState<CartSheet> {
                               ],
                             ),
                           ),
-                        const SizedBox(height: 16),
-                        InkWell(
-                          onTap: () => setState(() => showNameField = !showNameField),
-                          borderRadius: BorderRadius.circular(8),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  showNameField ? Icons.check_box : Icons.check_box_outline_blank,
-                                  color: showNameField ? AppTheme.primary : Colors.grey,
-                                  size: 22,
-                                ),
-                                const SizedBox(width: 8),
-                                const Text('Add customer name (optional)', style: TextStyle(fontSize: 14)),
-                              ],
+                        if (isPartialPayment)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 16),
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.orange.shade200),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.info_outline, size: 18, color: Colors.orange.shade700),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Partial Payment',
+                                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.orange.shade700),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text('Remaining Balance:', style: TextStyle(fontSize: 12)),
+                                      Text(
+                                        formatCurrency(cart.totalCents - cashReceivedCents),
+                                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.orange.shade700),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'The remaining balance will be added to customer\'s utang.',
+                                    style: TextStyle(fontSize: 11, color: Colors.orange.shade700),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                        if (showNameField)
+                        if (!isPartialPayment)
+                          const SizedBox(height: 16),
+                        if (!isPartialPayment)
+                          InkWell(
+                            onTap: () => setState(() => showNameField = !showNameField),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    showNameField ? Icons.check_box : Icons.check_box_outline_blank,
+                                    color: showNameField ? AppTheme.primary : Colors.grey,
+                                    size: 22,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Text('Add customer name (optional)', style: TextStyle(fontSize: 14)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        if (!isPartialPayment && showNameField)
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -1163,6 +1223,78 @@ class _CartSheetState extends ConsumerState<CartSheet> {
                                   errorMaxLines: 2,
                                 ),
                               ),
+                            ],
+                          ),
+                        if (isPartialPayment)
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 16),
+                              Row(
+                                children: [
+                                  const Text('Select Customer', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                                  const Text(' *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.red)),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              if (selectedCustomerId == null)
+                                OutlinedButton.icon(
+                                  onPressed: () async {
+                                    final customers = await ref.read(databaseProvider).customersDao.searchCustomers('');
+                                    if (!context.mounted) return;
+                                    final result = await showDialog<Map<String, String>?>(
+                                      context: context,
+                                      builder: (ctx) => _CustomerPickerDialog(customers: customers),
+                                    );
+                                    if (result != null) {
+                                      setState(() {
+                                        selectedCustomerId = result['id'];
+                                        selectedCustomerName = result['name'];
+                                      });
+                                    }
+                                  },
+                                  icon: const Icon(Icons.person_add),
+                                  label: const Text('Choose customer'),
+                                  style: OutlinedButton.styleFrom(
+                                    minimumSize: const Size(double.infinity, 48),
+                                    foregroundColor: AppTheme.primary,
+                                    side: const BorderSide(color: AppTheme.primary),
+                                  ),
+                                )
+                              else
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.shade50,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.green.shade200),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.check_circle, color: Colors.green.shade700, size: 20),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          selectedCustomerName!,
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.green.shade700,
+                                          ),
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: Icon(Icons.close, color: Colors.green.shade700, size: 20),
+                                        onPressed: () => setState(() {
+                                          selectedCustomerId = null;
+                                          selectedCustomerName = null;
+                                        }),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                             ],
                           ),
                         const SizedBox(height: 20),
@@ -1181,14 +1313,15 @@ class _CartSheetState extends ConsumerState<CartSheet> {
                             const SizedBox(width: 12),
                             Expanded(
                               child: ElevatedButton(
-                                onPressed: () {
-                                  if (formKey.currentState!.validate()) {
-                                    Navigator.pop(ctx, {
-                                      'cash': cashReceivedCents,
-                                      'change': changeCents,
-                                      'name': nameCtrl.text.trim().isEmpty ? null : nameCtrl.text.trim(),
-                                    });
-                                  }
+                                onPressed: (isPartialPayment && selectedCustomerId == null) ? null : () {
+                                  if (!formKey.currentState!.validate()) return;
+                                  Navigator.pop(ctx, {
+                                    'cash': cashReceivedCents,
+                                    'change': changeCents,
+                                    'name': nameCtrl.text.trim().isEmpty ? null : nameCtrl.text.trim(),
+                                    'isPartial': isPartialPayment,
+                                    'customerId': selectedCustomerId,
+                                  });
                                 },
                                 style: ElevatedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(vertical: 14),
@@ -1215,6 +1348,32 @@ class _CartSheetState extends ConsumerState<CartSheet> {
       _cashReceivedCents = result['cash'];
       _changeCents = result['change'];
       _cashPayerName = result['name'];
+      
+      if (result['isPartial'] == true) {
+        final customerId = result['customerId'];
+        final remainingBalance = cart.totalCents - _cashReceivedCents!;
+        
+        await ref.read(databaseProvider).transaction(() async {
+          final customer = await ref.read(databaseProvider).customersDao.getCustomerById(customerId);
+          if (customer != null) {
+            await ref.read(databaseProvider).customersDao.updateCustomer(
+              CustomersCompanion(
+                id: Value(customerId),
+                name: Value(customer.name),
+                phone: Value(customer.phone),
+                address: Value(customer.address),
+                notes: Value(customer.notes),
+                balanceCents: Value(customer.balanceCents + remainingBalance),
+                updatedAt: Value(DateTime.now()),
+              ),
+            );
+          }
+        });
+        
+        // Return the result with customerId so it can be used in checkout
+        return result;
+      }
+      
       return true;
     }
     return false;
@@ -1225,10 +1384,11 @@ class _CartSheetState extends ConsumerState<CartSheet> {
         .searchCustomers('');
 
     if (!context.mounted) return null;
-    return showDialog<String>(
+    final result = await showDialog<Map<String, String>?>(
       context: context,
       builder: (ctx) => _CustomerPickerDialog(customers: customers),
     );
+    return result?['id'];
   }
 
   @override
@@ -1264,6 +1424,8 @@ class _CartItemTile extends ConsumerWidget {
                 Text(
                   item.product.name,
                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: AppTheme.textPrimary),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -1402,6 +1564,9 @@ class _CustomerPickerDialogState extends ConsumerState<_CustomerPickerDialog> {
                                 validator: (v) {
                                   if (v?.trim().isEmpty ?? true) return 'Customer name is required';
                                   if (v!.trim().length > 30) return 'Name must be 30 characters or less';
+                                  // Check for duplicate
+                                  final exists = widget.customers.any((c) => c.name.toLowerCase() == v.trim().toLowerCase());
+                                  if (exists) return 'Customer with this name already exists';
                                   return null;
                                 },
                               ),
@@ -1437,7 +1602,7 @@ class _CustomerPickerDialogState extends ConsumerState<_CustomerPickerDialog> {
                           )
                         else
                           ...widget.customers.map((c) => InkWell(
-                            onTap: () => Navigator.pop(context, c.id),
+                            onTap: () => Navigator.pop(context, {'id': c.id, 'name': c.name}),
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                               decoration: BoxDecoration(
@@ -1494,11 +1659,22 @@ class _CustomerPickerDialogState extends ConsumerState<_CustomerPickerDialog> {
                       onPressed: _creating
                           ? () async {
                               if (!_formKey.currentState!.validate()) return;
-                              final id = await ref.read(customersNotifierProvider.notifier).addCustomer(
-                                name: _nameCtrl.text.trim(),
-                                phone: _phoneCtrl.text.isEmpty ? null : _phoneCtrl.text,
-                              );
-                              if (context.mounted) Navigator.pop(context, id);
+                              try {
+                                final id = await ref.read(customersNotifierProvider.notifier).addCustomer(
+                                  name: _nameCtrl.text.trim(),
+                                  phone: _phoneCtrl.text.isEmpty ? null : _phoneCtrl.text,
+                                );
+                                if (context.mounted) Navigator.pop(context, {'id': id, 'name': _nameCtrl.text.trim()});
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(e.toString().replaceAll('Exception: ', '')),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              }
                             }
                           : () => setState(() => _creating = true),
                       style: ElevatedButton.styleFrom(
