@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:drift/drift.dart' hide Column;
@@ -41,9 +42,13 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final shouldShow = offset > 50;
     
     if (shouldShow != _showFloatingButtons) {
-      setState(() {
-        _showFloatingButtons = shouldShow;
-        if (shouldShow) _isSearchExpanded = false;
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            _showFloatingButtons = shouldShow;
+            if (shouldShow) _isSearchExpanded = false;
+          });
+        }
       });
     }
   }
@@ -101,55 +106,47 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         children: [
           Column(
             children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-                height: _showFloatingButtons ? 0 : 72,
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 200),
-                  opacity: _showFloatingButtons ? 0 : 1,
-                  child: Container(
-                    color: Colors.white,
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(24),
-                              border: Border.all(color: Colors.grey.shade300),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.08),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            child: TextField(
-                              controller: _searchCtrl,
-                              decoration: const InputDecoration(
-                                hintText: 'Search products...',
-                                hintStyle: TextStyle(color: AppTheme.textSecondary),
-                                prefixIcon: Icon(Icons.search, color: AppTheme.textSecondary),
-                                border: InputBorder.none,
-                                enabledBorder: InputBorder.none,
-                                focusedBorder: InputBorder.none,
-                                contentPadding: EdgeInsets.symmetric(vertical: 12),
-                                filled: false,
+              if (!_showFloatingButtons)
+                Container(
+                  color: Colors.white,
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(color: Colors.grey.shade300),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.08),
+                                blurRadius: 4,
+                                offset: const Offset(0, 1),
                               ),
-                              onChanged: (v) => setState(() => _searchQuery = v),
+                            ],
+                          ),
+                          child: TextField(
+                            controller: _searchCtrl,
+                            decoration: const InputDecoration(
+                              hintText: 'Search products...',
+                              hintStyle: TextStyle(color: AppTheme.textSecondary),
+                              prefixIcon: Icon(Icons.search, color: AppTheme.textSecondary),
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                              filled: false,
                             ),
+                            onChanged: (v) => setState(() => _searchQuery = v),
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        _buildCategoryButton(),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 12),
+                      _buildCategoryButton(),
+                    ],
                   ),
                 ),
-              ),
               Expanded(
                 child: productsAsync.when(
                   data: (products) {
@@ -172,12 +169,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               top: 16,
               left: 16,
               right: 16,
-              child: IgnorePointer(
-                ignoring: !_showFloatingButtons,
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 300),
-                  opacity: _showFloatingButtons ? 1 : 0,
-                  child: _isSearchExpanded
+              child: _isSearchExpanded
                     ? Row(
                         children: [
                           Expanded(
@@ -257,8 +249,6 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                           _buildFloatingCategoryButton(),
                         ],
                       ),
-              ),
-            ),
             ),
         ],
       ),
@@ -308,6 +298,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   }
 
   void _showCategoryPicker(List<Category> categories) {
+    String? tempCategoryId = _selectedCategoryId;
+    
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -315,84 +307,107 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       isScrollControlled: false,
-      builder: (ctx) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(2),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                const Text('Filter by Category', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(ctx),
-                ),
-              ],
-            ),
-          ),
-          Divider(height: 1, color: Colors.grey.shade200),
-          Flexible(
-            child: ListView(
-              shrinkWrap: true,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              children: [
-                ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: _selectedCategoryId == null ? AppTheme.primary.withOpacity(0.1) : Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.grid_view_rounded,
-                      color: _selectedCategoryId == null ? AppTheme.primary : AppTheme.textSecondary,
-                    ),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  const Text('Filter by Category', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(ctx),
                   ),
-                  title: const Text('All Categories', style: TextStyle(fontWeight: FontWeight.w500)),
-                  selected: _selectedCategoryId == null,
-                  selectedTileColor: AppTheme.primary.withOpacity(0.05),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  onTap: () {
-                    setState(() => _selectedCategoryId = null);
+                ],
+              ),
+            ),
+            Divider(height: 1, color: Colors.grey.shade200),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                children: [
+                  ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: tempCategoryId == null ? AppTheme.primary.withOpacity(0.1) : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.grid_view_rounded,
+                        color: tempCategoryId == null ? AppTheme.primary : AppTheme.textSecondary,
+                      ),
+                    ),
+                    title: const Text('All Categories', style: TextStyle(fontWeight: FontWeight.w500)),
+                    selected: tempCategoryId == null,
+                    selectedTileColor: AppTheme.primary.withOpacity(0.05),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    onTap: () {
+                      setModalState(() => tempCategoryId = null);
+                    },
+                  ),
+                  ...categories.map((cat) => ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: tempCategoryId == cat.id ? AppTheme.primary.withOpacity(0.1) : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.category_outlined,
+                        color: tempCategoryId == cat.id ? AppTheme.primary : AppTheme.textSecondary,
+                      ),
+                    ),
+                    title: Text(cat.name, style: const TextStyle(fontWeight: FontWeight.w500)),
+                    selected: tempCategoryId == cat.id,
+                    selectedTileColor: AppTheme.primary.withOpacity(0.05),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    onTap: () {
+                      setModalState(() => tempCategoryId = cat.id);
+                    },
+                  )),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border(top: BorderSide(color: Colors.grey.shade200)),
+              ),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _selectedCategoryId = tempCategoryId;
+                      _showFloatingButtons = false;
+                    });
                     Navigator.pop(ctx);
                   },
-                ),
-                ...categories.map((cat) => ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: _selectedCategoryId == cat.id ? AppTheme.primary.withOpacity(0.1) : Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.category_outlined,
-                      color: _selectedCategoryId == cat.id ? AppTheme.primary : AppTheme.textSecondary,
-                    ),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  title: Text(cat.name, style: const TextStyle(fontWeight: FontWeight.w500)),
-                  selected: _selectedCategoryId == cat.id,
-                  selectedTileColor: AppTheme.primary.withOpacity(0.05),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  onTap: () {
-                    setState(() => _selectedCategoryId = cat.id);
-                    Navigator.pop(ctx);
-                  },
-                )),
-              ],
+                  child: const Text('Apply Filter'),
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-        ],
+          ],
+        ),
       ),
     );
   }

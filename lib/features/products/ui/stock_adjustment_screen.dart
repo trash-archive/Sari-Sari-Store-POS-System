@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:drift/drift.dart' hide Column;
 import '../../../core/utils/currency.dart';
 import '../../../app/providers.dart';
 import '../../../data/db/app_database.dart';
@@ -17,10 +18,17 @@ class StockAdjustmentScreen extends ConsumerStatefulWidget {
 
 class _StockAdjustmentScreenState extends ConsumerState<StockAdjustmentScreen> {
   final _qtyCtrl = TextEditingController();
+  final _priceCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
   String _adjustType = 'restock'; // restock | adjustment
   int _direction = 1; // +1 add, -1 remove (for adjustment)
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _priceCtrl.text = (widget.product.priceCents / 100).toStringAsFixed(2);
+  }
 
   int get _changeQty {
     final val = int.tryParse(_qtyCtrl.text) ?? 0;
@@ -34,6 +42,7 @@ class _StockAdjustmentScreenState extends ConsumerState<StockAdjustmentScreen> {
   @override
   void dispose() {
     _qtyCtrl.dispose();
+    _priceCtrl.dispose();
     _notesCtrl.dispose();
     super.dispose();
   }
@@ -164,6 +173,23 @@ class _StockAdjustmentScreenState extends ConsumerState<StockAdjustmentScreen> {
           ),
           const SizedBox(height: 16),
 
+          const Text('Selling Price', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _priceCtrl,
+            decoration: InputDecoration(
+              hintText: '0.00',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              prefixText: '₱ ',
+            ),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+            ],
+          ),
+          const SizedBox(height: 16),
+
           // Preview
           if (_qtyCtrl.text.isNotEmpty && _qtyCtrl.text != '0')
             Container(
@@ -209,9 +235,7 @@ class _StockAdjustmentScreenState extends ConsumerState<StockAdjustmentScreen> {
           const SizedBox(height: 24),
 
           ElevatedButton(
-            onPressed: (_saving || _qtyCtrl.text.isEmpty || _qtyCtrl.text == '0')
-                ? null
-                : _save,
+            onPressed: _saving ? null : _save,
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -222,7 +246,7 @@ class _StockAdjustmentScreenState extends ConsumerState<StockAdjustmentScreen> {
                     width: 20,
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                 : Text(
-                    _adjustType == 'restock' ? 'Add Stock' : 'Save Adjustment',
+                    'Save Changes',
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
           ),
@@ -256,13 +280,29 @@ class _StockAdjustmentScreenState extends ConsumerState<StockAdjustmentScreen> {
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
-      await ref.read(productsNotifierProvider.notifier).adjustStock(
-            widget.product.id,
-            widget.product.stockQty,
-            _changeQty,
-            _adjustType,
-            _notesCtrl.text.isEmpty ? null : _notesCtrl.text,
-          );
+      final newPriceCents = ((double.tryParse(_priceCtrl.text) ?? 0) * 100).round();
+      
+      // Update price if changed
+      if (newPriceCents != widget.product.priceCents) {
+        await ref.read(databaseProvider).productsDao.updateProduct(
+          ProductsCompanion(
+            id: Value(widget.product.id),
+            priceCents: Value(newPriceCents),
+          ),
+        );
+      }
+      
+      // Adjust stock if quantity changed
+      if (_qtyCtrl.text.isNotEmpty && _qtyCtrl.text != '0') {
+        await ref.read(productsNotifierProvider.notifier).adjustStock(
+          widget.product.id,
+          widget.product.stockQty,
+          _changeQty,
+          _adjustType,
+          _notesCtrl.text.isEmpty ? null : _notesCtrl.text,
+        );
+      }
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -270,7 +310,7 @@ class _StockAdjustmentScreenState extends ConsumerState<StockAdjustmentScreen> {
               children: [
                 Icon(Icons.check_circle, color: Colors.white, size: 20),
                 const SizedBox(width: 12),
-                Text('Stock adjusted successfully'),
+                Text('Updated successfully'),
               ],
             ),
             backgroundColor: Color(0xFF2E7D32),

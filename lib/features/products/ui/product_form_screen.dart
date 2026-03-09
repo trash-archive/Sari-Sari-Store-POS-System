@@ -95,6 +95,14 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       appBar: AppBar(
         title: Text(widget.product == null ? 'Add Product' : 'Edit Product'),
         elevation: 0,
+        actions: widget.product != null ? [
+          IconButton(
+            icon: const Icon(Icons.delete_sweep_rounded),
+            onPressed: _confirmDelete,
+            tooltip: 'Delete Product',
+            color: Colors.red.shade600,
+          ),
+        ] : null,
       ),
       body: Form(
         key: _formKey,
@@ -720,6 +728,36 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   String _formatDate(DateTime date) {
     final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return '${months[date.month - 1]} ${date.day}, ${date.year} at ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  void _confirmDelete() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Product'),
+        content: Text('Are you sure you want to delete "${widget.product!.name}"? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await ref.read(databaseProvider).productsDao.softDeleteProduct(widget.product!.id);
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('${widget.product!.name} deleted'), backgroundColor: Colors.green),
+                );
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

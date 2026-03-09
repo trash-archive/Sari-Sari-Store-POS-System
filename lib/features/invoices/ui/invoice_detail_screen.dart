@@ -105,7 +105,7 @@ class InvoiceDetailScreen extends ConsumerWidget {
                             final storeName = ref.watch(settingsProvider).storeName;
                             return Column(
                               children: [
-                                Icon(Icons.store, size: 32, color: AppTheme.primary),
+                                Image.asset('assets/images/logo.png', width: 48, height: 48),
                                 const SizedBox(height: 8),
                                 Text(
                                   storeName,
@@ -170,10 +170,10 @@ class InvoiceDetailScreen extends ConsumerWidget {
                               const SizedBox(height: 4),
                             if (data.customer != null)
                               _ReceiptRow('Customer:', data.customer!.name),
-                            if (inv.notes != null)
+                            if (inv.notes != null && inv.notes!.isNotEmpty)
                               const SizedBox(height: 4),
-                            if (inv.notes != null)
-                              _ReceiptRow('Notes:', inv.notes!),
+                            if (inv.notes != null && inv.notes!.isNotEmpty)
+                              _ReceiptRow(inv.type == 'cash' ? 'Customer:' : 'Notes:', inv.notes!),
                             
                             const SizedBox(height: 20),
                             
@@ -300,12 +300,16 @@ class InvoiceDetailScreen extends ConsumerWidget {
                               const SizedBox(height: 16),
                             
                             // Totals
-                            if (inv.type == 'payment')
-                              _ReceiptRow('Payment Amount:', formatCurrency(inv.totalCents), bold: true, fontSize: 18, valueColor: Colors.green.shade700),
-                            if (inv.type == 'payment')
+                            if (inv.type == 'payment') ...[
+                              if (inv.balanceBeforeCents != null)
+                                _ReceiptRow('Outstanding Balance:', formatCurrency(inv.balanceBeforeCents!), valueColor: Colors.red.shade700),
+                              if (inv.balanceBeforeCents != null)
+                                const SizedBox(height: 4),
+                              _ReceiptRow('Amount Paid:', formatCurrency(inv.totalCents), bold: true, fontSize: 16, valueColor: Colors.green.shade700),
                               const SizedBox(height: 8),
-                            if (inv.type == 'payment' && data.customer != null)
-                              _ReceiptRow('Remaining Balance:', formatCurrency(data.customer!.balanceCents), valueColor: data.customer!.balanceCents > 0 ? Colors.red.shade700 : Colors.green.shade700),
+                              if (inv.balanceAfterCents != null)
+                                _ReceiptRow('Remaining Balance:', formatCurrency(inv.balanceAfterCents!), valueColor: inv.balanceAfterCents! > 0 ? Colors.red.shade700 : Colors.green.shade700),
+                            ],
                             
                             if (inv.type != 'payment' && inv.discountCents > 0)
                               _ReceiptRow('Discount:', '- ${formatCurrency(inv.discountCents)}', valueColor: Colors.green.shade700),

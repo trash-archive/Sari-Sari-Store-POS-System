@@ -12,6 +12,8 @@ class Invoices extends Table {
   IntColumn get totalCents => integer().withDefault(const Constant(0))();
   IntColumn get cashReceivedCents => integer().nullable()();
   IntColumn get changeCents => integer().nullable()();
+  IntColumn get balanceBeforeCents => integer().nullable()();
+  IntColumn get balanceAfterCents => integer().nullable()();
   TextColumn get notes => text().nullable()();
   TextColumn get photoPath => text().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();

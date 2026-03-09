@@ -85,7 +85,8 @@ class CustomersNotifier extends Notifier<void> {
     final changeCents = cashReceivedCents != null && cashReceivedCents > actualPayment
         ? cashReceivedCents - actualPayment
         : null;
-    final remainingBalance = customer.balanceCents - actualPayment;
+    final balanceBeforeCents = customer.balanceCents;
+    final balanceAfterCents = customer.balanceCents - actualPayment;
 
     await _db.transaction(() async {
       await _db.into(_db.invoices).insert(InvoicesCompanion(
@@ -98,6 +99,8 @@ class CustomersNotifier extends Notifier<void> {
         totalCents: Value(actualPayment),
         cashReceivedCents: Value(cashReceivedCents),
         changeCents: Value(changeCents),
+        balanceBeforeCents: Value(balanceBeforeCents),
+        balanceAfterCents: Value(balanceAfterCents),
         notes: Value(notes),
         photoPath: Value(photoPath),
         createdAt: Value(now),

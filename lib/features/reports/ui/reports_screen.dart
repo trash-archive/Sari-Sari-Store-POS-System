@@ -300,79 +300,6 @@ class _ReportBody extends StatelessWidget {
           ],
         ),
 
-        const SizedBox(height: 12),
-
-        // Outstanding Utang Card
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: data.totalUtang > 0
-                  ? [Colors.orange.shade400, Colors.orange.shade600]
-                  : [Colors.green.shade400, Colors.green.shade600],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: (data.totalUtang > 0 ? Colors.orange : Colors.green).withOpacity(0.3),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  data.totalUtang > 0 ? Icons.people_outline : Icons.check_circle_outline,
-                  color: Colors.white,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Outstanding Utang',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      formatCurrency(data.totalUtang),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (data.topDebtors.isNotEmpty)
-                      Text(
-                        '${data.topDebtors.length} customer${data.topDebtors.length > 1 ? 's' : ''} with balance',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.8),
-                          fontSize: 12,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-
         const SizedBox(height: 28),
 
         // Best Sellers Section
@@ -644,7 +571,7 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 140,
+      height: 146,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,

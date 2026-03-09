@@ -46,77 +46,119 @@ class _UtangScreenState extends ConsumerState<UtangScreen> {
       body: Column(
         children: [
           Container(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-            child: TextField(
-              controller: _searchCtrl,
-              decoration: InputDecoration(
-                hintText: 'Search customers...',
-                hintStyle: TextStyle(color: Colors.grey.shade500),
-                prefixIcon: Icon(Icons.search, color: Colors.grey.shade500),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Theme.of(context).primaryColor),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                filled: true,
-                fillColor: Colors.white,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Colors.grey.shade300),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
               ),
-              onChanged: (v) => setState(() => _search = v),
+              child: TextField(
+                controller: _searchCtrl,
+                decoration: InputDecoration(
+                  hintText: 'Search customers...',
+                  hintStyle: TextStyle(color: Colors.grey.shade500),
+                  prefixIcon: Icon(Icons.search, color: Colors.grey.shade500),
+                  suffixIcon: _search.isNotEmpty
+                      ? IconButton(
+                          icon: Icon(Icons.close, color: Colors.grey.shade500, size: 20),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            setState(() => _search = '');
+                          },
+                        )
+                      : null,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  filled: false,
+                ),
+                onChanged: (v) => setState(() => _search = v),
+              ),
             ),
           ),
           customersAsync.when(
             loading: () => const SizedBox(),
             error: (_, __) => const SizedBox(),
             data: (customers) {
-              final withBalance =
-                  customers.where((c) => c.balanceCents > 0).length;
+              final withBalance = customers.where((c) => c.balanceCents > 0).length;
               final total = customers.fold(0, (s, c) => s + c.balanceCents);
-              if (total > 0) {
-                return Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.orange.shade200),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.account_balance_wallet_outlined,
-                          color: Colors.orange.shade700, size: 20),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          '$withBalance customer${withBalance > 1 ? 's' : ''} with outstanding balance',
-                          style: TextStyle(
-                            color: Colors.orange.shade800,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
+              return Container(
+                width: double.infinity,
+                margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Total Customers',
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 12,
+                            ),
                           ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${customers.length}',
+                            style: const TextStyle(
+                              color: Color(0xFF1A1A1A),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 20,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      height: 40,
+                      color: Colors.grey.shade300,
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Total Utang',
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              formatCurrency(total),
+                              style: const TextStyle(
+                                color: Color(0xFF2D5F3F),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 20,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      Text(
-                        formatCurrency(total),
-                        style: TextStyle(
-                          color: Colors.orange.shade900,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-              return const SizedBox();
+                    ),
+                  ],
+                ),
+              );
             },
           ),
           Expanded(
@@ -196,6 +238,7 @@ class _UtangScreenState extends ConsumerState<UtangScreen> {
                   itemCount: filtered.length,
                   itemBuilder: (context, i) {
                     final c = filtered[i];
+                    final initial = c.name.isNotEmpty ? c.name[0].toUpperCase() : '?';
                     return Container(
                       margin: const EdgeInsets.only(bottom: 12),
                       decoration: BoxDecoration(
@@ -224,19 +267,21 @@ class _UtangScreenState extends ConsumerState<UtangScreen> {
                             padding: const EdgeInsets.all(18),
                             child: Row(
                               children: [
-                                CircleAvatar(
-                                  radius: 28,
-                                  backgroundColor: c.balanceCents > 0
-                                      ? Colors.red.shade100
-                                      : Colors.green.shade100,
-                                  child: Text(
-                                    c.name[0].toUpperCase(),
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 20,
-                                      color: c.balanceCents > 0
-                                          ? Colors.red.shade700
-                                          : Colors.green.shade700,
+                                Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade100,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      initial,
+                                      style: TextStyle(
+                                        color: Colors.grey.shade700,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -276,29 +321,34 @@ class _UtangScreenState extends ConsumerState<UtangScreen> {
                                         const SizedBox(width: 16),
                                         Text(
                                           formatCurrency(c.balanceCents),
-                                          style: TextStyle(
-                                            color: Colors.red.shade700,
+                                          style: const TextStyle(
+                                            color: Color(0xFF1A1A1A),
                                             fontWeight: FontWeight.bold,
                                             fontSize: 16,
+                                          ),
+                                        ),
+                                      ] else ...[
+                                        const SizedBox(width: 16),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey.shade100,
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Text(
+                                            'Clear',
+                                            style: TextStyle(
+                                              color: Colors.grey.shade600,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                            ),
                                           ),
                                         ),
                                       ],
                                     ],
                                   ),
                                 ),
-                                if (c.balanceCents == 0)
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green.shade50,
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Icon(
-                                      Icons.check_circle,
-                                      color: Colors.green.shade600,
-                                      size: 24,
-                                    ),
-                                  ),
+
                               ],
                             ),
                           ),
@@ -312,13 +362,10 @@ class _UtangScreenState extends ConsumerState<UtangScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
         onPressed: () => _addCustomerDialog(context),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.person_add),
-        label: const Text('Add Customer', style: TextStyle(fontWeight: FontWeight.w600)),
-        elevation: 4,
+        tooltip: 'Add Customer',
+        child: const Icon(Icons.person_add),
       ),
     );
   }

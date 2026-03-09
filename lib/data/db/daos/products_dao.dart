@@ -69,8 +69,11 @@ class ProductsDao extends DatabaseAccessor<AppDatabase> with _$ProductsDaoMixin 
       into(db.products).insertReturning(data).then((p) => p.id);
 
   Future<void> updateProduct(ProductsCompanion data) {
-    final updatedData = data.copyWith(updatedAt: Value(DateTime.now()));
-    return update(db.products).replace(updatedData);
+    final updatedData = data.copyWith(
+      updatedAt: Value(DateTime.now()),
+      createdAt: const Value.absent(),
+    );
+    return (update(db.products)..where((p) => p.id.equals(data.id.value))).write(updatedData);
   }
 
   Future<void> updateStock(String productId, int newQty) =>

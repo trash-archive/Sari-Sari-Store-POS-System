@@ -1409,6 +1409,18 @@ class $InvoicesTable extends Invoices with TableInfo<$InvoicesTable, Invoice> {
   late final GeneratedColumn<int> changeCents = GeneratedColumn<int>(
       'change_cents', aliasedName, true,
       type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _balanceBeforeCentsMeta =
+      const VerificationMeta('balanceBeforeCents');
+  @override
+  late final GeneratedColumn<int> balanceBeforeCents = GeneratedColumn<int>(
+      'balance_before_cents', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _balanceAfterCentsMeta =
+      const VerificationMeta('balanceAfterCents');
+  @override
+  late final GeneratedColumn<int> balanceAfterCents = GeneratedColumn<int>(
+      'balance_after_cents', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
   static const VerificationMeta _notesMeta = const VerificationMeta('notes');
   @override
   late final GeneratedColumn<String> notes = GeneratedColumn<String>(
@@ -1440,6 +1452,8 @@ class $InvoicesTable extends Invoices with TableInfo<$InvoicesTable, Invoice> {
         totalCents,
         cashReceivedCents,
         changeCents,
+        balanceBeforeCents,
+        balanceAfterCents,
         notes,
         photoPath,
         createdAt
@@ -1511,6 +1525,18 @@ class $InvoicesTable extends Invoices with TableInfo<$InvoicesTable, Invoice> {
           changeCents.isAcceptableOrUnknown(
               data['change_cents']!, _changeCentsMeta));
     }
+    if (data.containsKey('balance_before_cents')) {
+      context.handle(
+          _balanceBeforeCentsMeta,
+          balanceBeforeCents.isAcceptableOrUnknown(
+              data['balance_before_cents']!, _balanceBeforeCentsMeta));
+    }
+    if (data.containsKey('balance_after_cents')) {
+      context.handle(
+          _balanceAfterCentsMeta,
+          balanceAfterCents.isAcceptableOrUnknown(
+              data['balance_after_cents']!, _balanceAfterCentsMeta));
+    }
     if (data.containsKey('notes')) {
       context.handle(
           _notesMeta, notes.isAcceptableOrUnknown(data['notes']!, _notesMeta));
@@ -1552,6 +1578,10 @@ class $InvoicesTable extends Invoices with TableInfo<$InvoicesTable, Invoice> {
           DriftSqlType.int, data['${effectivePrefix}cash_received_cents']),
       changeCents: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}change_cents']),
+      balanceBeforeCents: attachedDatabase.typeMapping.read(
+          DriftSqlType.int, data['${effectivePrefix}balance_before_cents']),
+      balanceAfterCents: attachedDatabase.typeMapping.read(
+          DriftSqlType.int, data['${effectivePrefix}balance_after_cents']),
       notes: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}notes']),
       photoPath: attachedDatabase.typeMapping
@@ -1578,6 +1608,8 @@ class Invoice extends DataClass implements Insertable<Invoice> {
   final int totalCents;
   final int? cashReceivedCents;
   final int? changeCents;
+  final int? balanceBeforeCents;
+  final int? balanceAfterCents;
   final String? notes;
   final String? photoPath;
   final DateTime createdAt;
@@ -1592,6 +1624,8 @@ class Invoice extends DataClass implements Insertable<Invoice> {
       required this.totalCents,
       this.cashReceivedCents,
       this.changeCents,
+      this.balanceBeforeCents,
+      this.balanceAfterCents,
       this.notes,
       this.photoPath,
       required this.createdAt});
@@ -1613,6 +1647,12 @@ class Invoice extends DataClass implements Insertable<Invoice> {
     }
     if (!nullToAbsent || changeCents != null) {
       map['change_cents'] = Variable<int>(changeCents);
+    }
+    if (!nullToAbsent || balanceBeforeCents != null) {
+      map['balance_before_cents'] = Variable<int>(balanceBeforeCents);
+    }
+    if (!nullToAbsent || balanceAfterCents != null) {
+      map['balance_after_cents'] = Variable<int>(balanceAfterCents);
     }
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
@@ -1642,6 +1682,12 @@ class Invoice extends DataClass implements Insertable<Invoice> {
       changeCents: changeCents == null && nullToAbsent
           ? const Value.absent()
           : Value(changeCents),
+      balanceBeforeCents: balanceBeforeCents == null && nullToAbsent
+          ? const Value.absent()
+          : Value(balanceBeforeCents),
+      balanceAfterCents: balanceAfterCents == null && nullToAbsent
+          ? const Value.absent()
+          : Value(balanceAfterCents),
       notes:
           notes == null && nullToAbsent ? const Value.absent() : Value(notes),
       photoPath: photoPath == null && nullToAbsent
@@ -1665,6 +1711,8 @@ class Invoice extends DataClass implements Insertable<Invoice> {
       totalCents: serializer.fromJson<int>(json['totalCents']),
       cashReceivedCents: serializer.fromJson<int?>(json['cashReceivedCents']),
       changeCents: serializer.fromJson<int?>(json['changeCents']),
+      balanceBeforeCents: serializer.fromJson<int?>(json['balanceBeforeCents']),
+      balanceAfterCents: serializer.fromJson<int?>(json['balanceAfterCents']),
       notes: serializer.fromJson<String?>(json['notes']),
       photoPath: serializer.fromJson<String?>(json['photoPath']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -1684,6 +1732,8 @@ class Invoice extends DataClass implements Insertable<Invoice> {
       'totalCents': serializer.toJson<int>(totalCents),
       'cashReceivedCents': serializer.toJson<int?>(cashReceivedCents),
       'changeCents': serializer.toJson<int?>(changeCents),
+      'balanceBeforeCents': serializer.toJson<int?>(balanceBeforeCents),
+      'balanceAfterCents': serializer.toJson<int?>(balanceAfterCents),
       'notes': serializer.toJson<String?>(notes),
       'photoPath': serializer.toJson<String?>(photoPath),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -1701,6 +1751,8 @@ class Invoice extends DataClass implements Insertable<Invoice> {
           int? totalCents,
           Value<int?> cashReceivedCents = const Value.absent(),
           Value<int?> changeCents = const Value.absent(),
+          Value<int?> balanceBeforeCents = const Value.absent(),
+          Value<int?> balanceAfterCents = const Value.absent(),
           Value<String?> notes = const Value.absent(),
           Value<String?> photoPath = const Value.absent(),
           DateTime? createdAt}) =>
@@ -1717,6 +1769,12 @@ class Invoice extends DataClass implements Insertable<Invoice> {
             ? cashReceivedCents.value
             : this.cashReceivedCents,
         changeCents: changeCents.present ? changeCents.value : this.changeCents,
+        balanceBeforeCents: balanceBeforeCents.present
+            ? balanceBeforeCents.value
+            : this.balanceBeforeCents,
+        balanceAfterCents: balanceAfterCents.present
+            ? balanceAfterCents.value
+            : this.balanceAfterCents,
         notes: notes.present ? notes.value : this.notes,
         photoPath: photoPath.present ? photoPath.value : this.photoPath,
         createdAt: createdAt ?? this.createdAt,
@@ -1742,6 +1800,12 @@ class Invoice extends DataClass implements Insertable<Invoice> {
           : this.cashReceivedCents,
       changeCents:
           data.changeCents.present ? data.changeCents.value : this.changeCents,
+      balanceBeforeCents: data.balanceBeforeCents.present
+          ? data.balanceBeforeCents.value
+          : this.balanceBeforeCents,
+      balanceAfterCents: data.balanceAfterCents.present
+          ? data.balanceAfterCents.value
+          : this.balanceAfterCents,
       notes: data.notes.present ? data.notes.value : this.notes,
       photoPath: data.photoPath.present ? data.photoPath.value : this.photoPath,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
@@ -1761,6 +1825,8 @@ class Invoice extends DataClass implements Insertable<Invoice> {
           ..write('totalCents: $totalCents, ')
           ..write('cashReceivedCents: $cashReceivedCents, ')
           ..write('changeCents: $changeCents, ')
+          ..write('balanceBeforeCents: $balanceBeforeCents, ')
+          ..write('balanceAfterCents: $balanceAfterCents, ')
           ..write('notes: $notes, ')
           ..write('photoPath: $photoPath, ')
           ..write('createdAt: $createdAt')
@@ -1780,6 +1846,8 @@ class Invoice extends DataClass implements Insertable<Invoice> {
       totalCents,
       cashReceivedCents,
       changeCents,
+      balanceBeforeCents,
+      balanceAfterCents,
       notes,
       photoPath,
       createdAt);
@@ -1797,6 +1865,8 @@ class Invoice extends DataClass implements Insertable<Invoice> {
           other.totalCents == this.totalCents &&
           other.cashReceivedCents == this.cashReceivedCents &&
           other.changeCents == this.changeCents &&
+          other.balanceBeforeCents == this.balanceBeforeCents &&
+          other.balanceAfterCents == this.balanceAfterCents &&
           other.notes == this.notes &&
           other.photoPath == this.photoPath &&
           other.createdAt == this.createdAt);
@@ -1813,6 +1883,8 @@ class InvoicesCompanion extends UpdateCompanion<Invoice> {
   final Value<int> totalCents;
   final Value<int?> cashReceivedCents;
   final Value<int?> changeCents;
+  final Value<int?> balanceBeforeCents;
+  final Value<int?> balanceAfterCents;
   final Value<String?> notes;
   final Value<String?> photoPath;
   final Value<DateTime> createdAt;
@@ -1828,6 +1900,8 @@ class InvoicesCompanion extends UpdateCompanion<Invoice> {
     this.totalCents = const Value.absent(),
     this.cashReceivedCents = const Value.absent(),
     this.changeCents = const Value.absent(),
+    this.balanceBeforeCents = const Value.absent(),
+    this.balanceAfterCents = const Value.absent(),
     this.notes = const Value.absent(),
     this.photoPath = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -1844,6 +1918,8 @@ class InvoicesCompanion extends UpdateCompanion<Invoice> {
     this.totalCents = const Value.absent(),
     this.cashReceivedCents = const Value.absent(),
     this.changeCents = const Value.absent(),
+    this.balanceBeforeCents = const Value.absent(),
+    this.balanceAfterCents = const Value.absent(),
     this.notes = const Value.absent(),
     this.photoPath = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -1862,6 +1938,8 @@ class InvoicesCompanion extends UpdateCompanion<Invoice> {
     Expression<int>? totalCents,
     Expression<int>? cashReceivedCents,
     Expression<int>? changeCents,
+    Expression<int>? balanceBeforeCents,
+    Expression<int>? balanceAfterCents,
     Expression<String>? notes,
     Expression<String>? photoPath,
     Expression<DateTime>? createdAt,
@@ -1878,6 +1956,9 @@ class InvoicesCompanion extends UpdateCompanion<Invoice> {
       if (totalCents != null) 'total_cents': totalCents,
       if (cashReceivedCents != null) 'cash_received_cents': cashReceivedCents,
       if (changeCents != null) 'change_cents': changeCents,
+      if (balanceBeforeCents != null)
+        'balance_before_cents': balanceBeforeCents,
+      if (balanceAfterCents != null) 'balance_after_cents': balanceAfterCents,
       if (notes != null) 'notes': notes,
       if (photoPath != null) 'photo_path': photoPath,
       if (createdAt != null) 'created_at': createdAt,
@@ -1896,6 +1977,8 @@ class InvoicesCompanion extends UpdateCompanion<Invoice> {
       Value<int>? totalCents,
       Value<int?>? cashReceivedCents,
       Value<int?>? changeCents,
+      Value<int?>? balanceBeforeCents,
+      Value<int?>? balanceAfterCents,
       Value<String?>? notes,
       Value<String?>? photoPath,
       Value<DateTime>? createdAt,
@@ -1911,6 +1994,8 @@ class InvoicesCompanion extends UpdateCompanion<Invoice> {
       totalCents: totalCents ?? this.totalCents,
       cashReceivedCents: cashReceivedCents ?? this.cashReceivedCents,
       changeCents: changeCents ?? this.changeCents,
+      balanceBeforeCents: balanceBeforeCents ?? this.balanceBeforeCents,
+      balanceAfterCents: balanceAfterCents ?? this.balanceAfterCents,
       notes: notes ?? this.notes,
       photoPath: photoPath ?? this.photoPath,
       createdAt: createdAt ?? this.createdAt,
@@ -1951,6 +2036,12 @@ class InvoicesCompanion extends UpdateCompanion<Invoice> {
     if (changeCents.present) {
       map['change_cents'] = Variable<int>(changeCents.value);
     }
+    if (balanceBeforeCents.present) {
+      map['balance_before_cents'] = Variable<int>(balanceBeforeCents.value);
+    }
+    if (balanceAfterCents.present) {
+      map['balance_after_cents'] = Variable<int>(balanceAfterCents.value);
+    }
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
@@ -1979,6 +2070,8 @@ class InvoicesCompanion extends UpdateCompanion<Invoice> {
           ..write('totalCents: $totalCents, ')
           ..write('cashReceivedCents: $cashReceivedCents, ')
           ..write('changeCents: $changeCents, ')
+          ..write('balanceBeforeCents: $balanceBeforeCents, ')
+          ..write('balanceAfterCents: $balanceAfterCents, ')
           ..write('notes: $notes, ')
           ..write('photoPath: $photoPath, ')
           ..write('createdAt: $createdAt, ')
@@ -4307,6 +4400,8 @@ typedef $$InvoicesTableCreateCompanionBuilder = InvoicesCompanion Function({
   Value<int> totalCents,
   Value<int?> cashReceivedCents,
   Value<int?> changeCents,
+  Value<int?> balanceBeforeCents,
+  Value<int?> balanceAfterCents,
   Value<String?> notes,
   Value<String?> photoPath,
   Value<DateTime> createdAt,
@@ -4323,6 +4418,8 @@ typedef $$InvoicesTableUpdateCompanionBuilder = InvoicesCompanion Function({
   Value<int> totalCents,
   Value<int?> cashReceivedCents,
   Value<int?> changeCents,
+  Value<int?> balanceBeforeCents,
+  Value<int?> balanceAfterCents,
   Value<String?> notes,
   Value<String?> photoPath,
   Value<DateTime> createdAt,
@@ -4417,6 +4514,14 @@ class $$InvoicesTableFilterComposer
 
   ColumnFilters<int> get changeCents => $composableBuilder(
       column: $table.changeCents, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get balanceBeforeCents => $composableBuilder(
+      column: $table.balanceBeforeCents,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get balanceAfterCents => $composableBuilder(
+      column: $table.balanceAfterCents,
+      builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get notes => $composableBuilder(
       column: $table.notes, builder: (column) => ColumnFilters(column));
@@ -4529,6 +4634,14 @@ class $$InvoicesTableOrderingComposer
   ColumnOrderings<int> get changeCents => $composableBuilder(
       column: $table.changeCents, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<int> get balanceBeforeCents => $composableBuilder(
+      column: $table.balanceBeforeCents,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get balanceAfterCents => $composableBuilder(
+      column: $table.balanceAfterCents,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get notes => $composableBuilder(
       column: $table.notes, builder: (column) => ColumnOrderings(column));
 
@@ -4594,6 +4707,12 @@ class $$InvoicesTableAnnotationComposer
 
   GeneratedColumn<int> get changeCents => $composableBuilder(
       column: $table.changeCents, builder: (column) => column);
+
+  GeneratedColumn<int> get balanceBeforeCents => $composableBuilder(
+      column: $table.balanceBeforeCents, builder: (column) => column);
+
+  GeneratedColumn<int> get balanceAfterCents => $composableBuilder(
+      column: $table.balanceAfterCents, builder: (column) => column);
 
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
@@ -4701,6 +4820,8 @@ class $$InvoicesTableTableManager extends RootTableManager<
             Value<int> totalCents = const Value.absent(),
             Value<int?> cashReceivedCents = const Value.absent(),
             Value<int?> changeCents = const Value.absent(),
+            Value<int?> balanceBeforeCents = const Value.absent(),
+            Value<int?> balanceAfterCents = const Value.absent(),
             Value<String?> notes = const Value.absent(),
             Value<String?> photoPath = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
@@ -4717,6 +4838,8 @@ class $$InvoicesTableTableManager extends RootTableManager<
             totalCents: totalCents,
             cashReceivedCents: cashReceivedCents,
             changeCents: changeCents,
+            balanceBeforeCents: balanceBeforeCents,
+            balanceAfterCents: balanceAfterCents,
             notes: notes,
             photoPath: photoPath,
             createdAt: createdAt,
@@ -4733,6 +4856,8 @@ class $$InvoicesTableTableManager extends RootTableManager<
             Value<int> totalCents = const Value.absent(),
             Value<int?> cashReceivedCents = const Value.absent(),
             Value<int?> changeCents = const Value.absent(),
+            Value<int?> balanceBeforeCents = const Value.absent(),
+            Value<int?> balanceAfterCents = const Value.absent(),
             Value<String?> notes = const Value.absent(),
             Value<String?> photoPath = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
@@ -4749,6 +4874,8 @@ class $$InvoicesTableTableManager extends RootTableManager<
             totalCents: totalCents,
             cashReceivedCents: cashReceivedCents,
             changeCents: changeCents,
+            balanceBeforeCents: balanceBeforeCents,
+            balanceAfterCents: balanceAfterCents,
             notes: notes,
             photoPath: photoPath,
             createdAt: createdAt,

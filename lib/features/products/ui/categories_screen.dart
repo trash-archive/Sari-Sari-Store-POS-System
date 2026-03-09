@@ -167,12 +167,12 @@ class CategoriesScreen extends ConsumerWidget {
                 },
               ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
         onPressed: () => _addCategoryDialog(context, ref),
-        icon: const Icon(Icons.add),
-        label: const Text('Add Category'),
+        tooltip: 'Add Category',
         backgroundColor: AppTheme.primary,
         foregroundColor: Colors.white,
+        child: const Icon(Icons.add),
       ),
     );
   }

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/utils/currency.dart';
 import '../../../core/utils/date_utils.dart';
 import '../../../app/providers.dart';
+import '../../../app/theme.dart';
 import '../../../data/db/app_database.dart';
 import '../../../data/services/pdf_service.dart';
 import '../state/customers_provider.dart';
@@ -19,6 +21,8 @@ class CustomerDetailScreen extends ConsumerStatefulWidget {
 
 class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
   Customer? _current;
+  bool _isReversed = false;
+  DateTimeRange? _dateRange;
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +32,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(customer.name),
+        title: const Text('Customer Details'),
         actions: [
           IconButton(
             icon: const Icon(Icons.picture_as_pdf_outlined),
@@ -53,15 +57,12 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
       body: Column(
         children: [
           // Balance header
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
+          Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: customer.balanceCents > 0
-                    ? [Colors.red[700]!, Colors.red[400]!]
-                    : [Colors.green[700]!, Colors.green[400]!],
+                colors: [Color(0xFFE8F5E9), Color(0xFFF1F8F4)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -69,83 +70,133 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Text(
+                  customer.name,
+                  style: const TextStyle(
+                    color: Color(0xFF1A1A1A),
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
                 Row(
                   children: [
-                    CircleAvatar(
-                      backgroundColor: Colors.white.withOpacity(0.2),
-                      radius: 26,
-                      child: Text(customer.name[0].toUpperCase(),
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold)),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(customer.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Balance',
+                            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            formatCurrency(customer.balanceCents),
                             style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold)),
-                        if (customer.phone != null)
-                          Text(customer.phone!,
-                              style: const TextStyle(color: Colors.white70)),
-                      ],
+                              color: Color(0xFF2D5F3F),
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                const Text('Balance',
-                    style: TextStyle(color: Colors.white70, fontSize: 13)),
-                Text(
-                  formatCurrency(customer.balanceCents),
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 36,
-                      fontWeight: FontWeight.bold),
-                ),
-                if (customer.balanceCents > 0)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.red[700],
-                        ),
-                        onPressed: () => _recordPayment(context, customer),
-                        icon: const Icon(Icons.payment),
-                        label: const Text('Record Payment'),
+                if (customer.balanceCents > 0) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2D5F3F),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
+                      onPressed: () => _recordPayment(context, customer),
+                      icon: const Icon(Icons.payment, size: 18),
+                      label: const Text('Record Payment', style: TextStyle(fontWeight: FontWeight.w600)),
                     ),
                   ),
+                ],
               ],
             ),
           ),
 
-          // Ledger title
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          // Transaction history header
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            color: Colors.grey.shade50,
             child: Row(
               children: [
-                const Text('Transaction History',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                const Text(
+                  'Transaction History',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: Color(0xFF1A1A1A),
+                  ),
+                ),
                 const Spacer(),
-                Text('Sorted newest first',
-                    style:
-                        TextStyle(color: Colors.grey[500], fontSize: 11)),
+                InkWell(
+                  onTap: () => _showDateFilter(context),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _dateRange != null ? const Color(0xFF2D5F3F) : Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: _dateRange != null ? const Color(0xFF2D5F3F) : Colors.grey.shade300),
+                    ),
+                    child: Icon(
+                      Icons.calendar_today,
+                      size: 14,
+                      color: _dateRange != null ? Colors.white : const Color(0xFF2D5F3F),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      _isReversed = !_isReversed;
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.swap_vert,
+                          size: 14,
+                          color: Color(0xFF2D5F3F),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _isReversed ? 'Oldest' : 'Newest',
+                          style: const TextStyle(
+                            color: Color(0xFF2D5F3F),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-          const Divider(),
 
           // Ledger
-          Expanded(child: _LedgerList(customerId: customer.id)),
+          Expanded(child: _LedgerList(customerId: customer.id, isReversed: _isReversed, dateRange: _dateRange)),
         ],
       ),
     );
@@ -377,31 +428,31 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Container(
-          color: Colors.white,
-          constraints: const BoxConstraints(maxWidth: 400),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
-                child: Row(
-                  children: [
-                    const Text('Edit Customer', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.close, size: 20),
-                      onPressed: () => Navigator.pop(ctx),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                  ],
+        child: SingleChildScrollView(
+          child: Container(
+            color: Colors.white,
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
+                  child: Row(
+                    children: [
+                      const Text('Edit Customer', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: () => Navigator.pop(ctx),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Divider(height: 1, color: Colors.grey.shade200),
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: SingleChildScrollView(
+                Divider(height: 1, color: Colors.grey.shade200),
+                Padding(
+                  padding: const EdgeInsets.all(20),
                   child: Form(
                     key: formKey,
                     child: Column(
@@ -426,7 +477,6 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                           validator: (v) {
                             if (v?.trim().isEmpty ?? true) return 'Customer name is required';
                             if (v!.trim().length > 30) return 'Name must be 30 characters or less';
-                            // Check for duplicate (excluding current customer)
                             final exists = allCustomers.any((c) => c.name.toLowerCase() == v.trim().toLowerCase() && c.id != customer.id);
                             if (exists) return 'Customer with this name already exists';
                             return null;
@@ -435,13 +485,18 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                         const SizedBox(height: 16),
                         const Text('Phone (optional)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87)),
                         const SizedBox(height: 8),
-                        TextField(
+                        TextFormField(
                           controller: phoneCtrl,
                           decoration: InputDecoration(
                             hintText: 'Enter phone number',
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           ),
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(15),
+                          ],
                         ),
                         const SizedBox(height: 16),
                         const Text('Address (optional)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87)),
@@ -519,9 +574,125 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+        ),
+      ),
+    );
+  }
+
+  void _showDateFilter(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  const Text(
+                    'Filter by Date',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const Spacer(),
+                  if (_dateRange != null)
+                    TextButton(
+                      onPressed: () {
+                        setState(() => _dateRange = null);
+                        Navigator.pop(ctx);
+                      },
+                      child: const Text('Clear'),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildDateOption(ctx, 'Today', () {
+              final now = DateTime.now();
+              setState(() => _dateRange = DateTimeRange(start: now, end: now));
+              Navigator.pop(ctx);
+            }),
+            _buildDateOption(ctx, 'Last 7 Days', () {
+              final now = DateTime.now();
+              setState(() => _dateRange = DateTimeRange(
+                start: now.subtract(const Duration(days: 6)),
+                end: now,
+              ));
+              Navigator.pop(ctx);
+            }),
+            _buildDateOption(ctx, 'Last 30 Days', () {
+              final now = DateTime.now();
+              setState(() => _dateRange = DateTimeRange(
+                start: now.subtract(const Duration(days: 29)),
+                end: now,
+              ));
+              Navigator.pop(ctx);
+            }),
+            _buildDateOption(ctx, 'This Month', () {
+              final now = DateTime.now();
+              setState(() => _dateRange = DateTimeRange(
+                start: DateTime(now.year, now.month, 1),
+                end: now,
+              ));
+              Navigator.pop(ctx);
+            }),
+            const Divider(height: 24),
+            _buildDateOption(ctx, 'Custom Range', () async {
+              Navigator.pop(ctx);
+              final range = await showDateRangePicker(
+                context: context,
+                firstDate: DateTime(2020),
+                lastDate: DateTime.now(),
+                initialDateRange: _dateRange,
+                builder: (context, child) {
+                  return Theme(
+                    data: Theme.of(context).copyWith(
+                      colorScheme: const ColorScheme.light(
+                        primary: Color(0xFF2D5F3F),
+                      ),
+                    ),
+                    child: child!,
+                  );
+                },
+              );
+              if (range != null) {
+                setState(() => _dateRange = range);
+              }
+            }, icon: Icons.date_range),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDateOption(BuildContext ctx, String label, VoidCallback onTap, {IconData? icon}) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        child: Row(
+          children: [
+            Icon(
+              icon ?? Icons.calendar_today_outlined,
+              size: 20,
+              color: const Color(0xFF2D5F3F),
+            ),
+            const SizedBox(width: 16),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+            ),
+          ],
         ),
       ),
     );
@@ -565,6 +736,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
           type: 'utang',
           description: inv.invoiceNo,
           amountCents: inv.totalCents,
+          isVoided: inv.status == 'voided',
         ));
       }
       for (final pay in payments) {
@@ -573,6 +745,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
           type: 'payment',
           description: pay.notes ?? 'Payment',
           amountCents: pay.amountCents,
+          isVoided: false,
         ));
       }
       ledger.sort((a, b) => a.date.compareTo(b.date));
@@ -606,18 +779,22 @@ class _LedgerEntry {
   final String type;
   final String description;
   final int amountCents;
+  final bool isVoided;
   _LedgerEntry(
       {required this.date,
       required this.type,
       required this.description,
-      required this.amountCents});
+      required this.amountCents,
+      this.isVoided = false});
 }
 
 // ─── Ledger List Widget ──────────────────────────────────────────────────────
 
 class _LedgerList extends ConsumerWidget {
   final String customerId;
-  const _LedgerList({required this.customerId});
+  final bool isReversed;
+  final DateTimeRange? dateRange;
+  const _LedgerList({required this.customerId, required this.isReversed, this.dateRange});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -646,22 +823,46 @@ class _LedgerList extends ConsumerWidget {
         type: 'utang',
         description: inv.invoiceNo,
         amountCents: inv.totalCents,
+        isVoided: inv.status == 'voided',
       ));
     }
     for (final pay in payments) {
+      // Check if the payment's associated invoice is voided
+      final associatedInvoice = pay.invoiceId != null 
+          ? invoices.where((inv) => inv.id == pay.invoiceId).firstOrNull
+          : null;
       entries.add(_LedgerEntry(
         date: pay.createdAt,
         type: 'payment',
         description: pay.notes ?? 'Payment',
         amountCents: pay.amountCents,
+        isVoided: associatedInvoice?.status == 'voided',
       ));
     }
-    entries.sort((a, b) => b.date.compareTo(a.date)); // newest first
+    
+    // Apply date filter
+    final filtered = dateRange == null
+        ? entries
+        : entries.where((e) {
+            final date = DateTime(e.date.year, e.date.month, e.date.day);
+            final start = DateTime(dateRange!.start.year, dateRange!.start.month, dateRange!.start.day);
+            final end = DateTime(dateRange!.end.year, dateRange!.end.month, dateRange!.end.day);
+            return !date.isBefore(start) && !date.isAfter(end);
+          }).toList();
+    
+    filtered.sort((a, b) => isReversed ? a.date.compareTo(b.date) : b.date.compareTo(a.date));
+
+    if (filtered.isEmpty) {
+      return const Center(
+        child: Text('No transactions in selected date range',
+            style: TextStyle(color: Colors.grey)),
+      );
+    }
 
     // Compute running balances (from oldest to newest, then reverse display)
     int balance = 0;
     final balances = <int>[];
-    final sorted = [...entries]..sort((a, b) => a.date.compareTo(b.date));
+    final sorted = [...filtered]..sort((a, b) => a.date.compareTo(b.date));
     for (final e in sorted) {
       if (e.type == 'utang') {
         balance += e.amountCents;
@@ -679,30 +880,35 @@ class _LedgerList extends ConsumerWidget {
 
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      itemCount: entries.length,
+      itemCount: filtered.length,
       itemBuilder: (context, i) {
-        final entry = entries[i];
+        final entry = filtered[i];
         final runningBal = balanceMap[
                 entry.date.toIso8601String() + entry.description] ??
             0;
         final isPayment = entry.type == 'payment';
         final isInvoice = entry.type == 'utang';
+        final isVoided = entry.isVoided;
 
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 3),
           child: ListTile(
             leading: CircleAvatar(
               backgroundColor:
-                  isPayment ? Colors.green[100] : Colors.red[100],
+                  isVoided ? Colors.red.shade50 : (isPayment ? Colors.blue.shade50 : Colors.orange.shade50),
               child: Icon(
-                isPayment ? Icons.arrow_downward : Icons.arrow_upward,
-                color: isPayment ? Colors.green[700] : Colors.red[700],
+                isVoided ? Icons.block : (isPayment ? Icons.account_balance_wallet : Icons.credit_card),
+                color: isVoided ? Colors.red.shade700 : (isPayment ? Colors.blue.shade700 : Colors.orange.shade700),
                 size: 20,
               ),
             ),
             title: Text(
               entry.description,
-              style: const TextStyle(fontWeight: FontWeight.w600),
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: isVoided ? Colors.grey.shade600 : AppTheme.textPrimary,
+                decoration: isVoided ? TextDecoration.lineThrough : null,
+              ),
             ),
             subtitle: Text(formatDateTime(entry.date),
                 style: const TextStyle(fontSize: 11)),
@@ -713,7 +919,7 @@ class _LedgerList extends ConsumerWidget {
                 Text(
                   '${isPayment ? '−' : '+'}${formatCurrency(entry.amountCents)}',
                   style: TextStyle(
-                    color: isPayment ? Colors.green[700] : Colors.red[700],
+                    color: isVoided ? Colors.grey.shade600 : (isPayment ? Colors.green[700] : Colors.red[700]),
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
                   ),
