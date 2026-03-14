@@ -726,16 +726,24 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
   Future<void> _exportStatement(BuildContext context, Customer customer) async {
     try {
       final db = ref.read(databaseProvider);
-      final invoices = await db.invoicesDao.getUtangInvoicesForCustomer(customer.id);
+      final invoices = await db.invoicesDao.getAllInvoicesForCustomer(customer.id);
       final payments = await db.customersDao.getPaymentsForCustomer(customer.id);
 
       final ledger = <_LedgerEntry>[];
       for (final inv in invoices) {
+        int displayAmount = inv.totalCents;
+        String entryType = inv.type == 'cash' ? 'partial_payment' : inv.type;
+        
+        // For partial payments, show the utang amount (what was added to customer balance)
+        if (inv.type == 'cash' && inv.customerId != null && inv.cashReceivedCents != null) {
+          displayAmount = inv.totalCents - inv.cashReceivedCents!;
+        }
+        
         ledger.add(_LedgerEntry(
           date: inv.createdAt,
-          type: 'utang',
+          type: entryType,
           description: inv.invoiceNo,
-          amountCents: inv.totalCents,
+          amountCents: displayAmount,
           isVoided: inv.status == 'voided',
         ));
       }
@@ -818,11 +826,19 @@ class _LedgerList extends ConsumerWidget {
     // Build combined ledger entries
     final entries = <_LedgerEntry>[];
     for (final inv in invoices) {
+      int displayAmount = inv.totalCents;
+      String entryType = inv.type == 'cash' ? 'partial_payment' : inv.type;
+      
+      // For partial payments, show the utang amount (what was added to customer balance)
+      if (inv.type == 'cash' && inv.customerId != null && inv.cashReceivedCents != null) {
+        displayAmount = inv.totalCents - inv.cashReceivedCents!;
+      }
+      
       entries.add(_LedgerEntry(
         date: inv.createdAt,
-        type: 'utang',
+        type: entryType,
         description: inv.invoiceNo,
-        amountCents: inv.totalCents,
+        amountCents: displayAmount,
         isVoided: inv.status == 'voided',
       ));
     }
@@ -866,6 +882,10 @@ class _LedgerList extends ConsumerWidget {
     for (final e in sorted) {
       if (e.type == 'utang') {
         balance += e.amountCents;
+      } else if (e.type == 'partial_payment') {
+        // For partial payments, only the remaining balance (after cash received) is added to utang
+        // The invoice total already represents what was added to customer balance
+        balance += e.amountCents;
       } else {
         balance = (balance - e.amountCents).clamp(0, 999999999);
       }
@@ -888,6 +908,7 @@ class _LedgerList extends ConsumerWidget {
             0;
         final isPayment = entry.type == 'payment';
         final isInvoice = entry.type == 'utang';
+        final isPartialPayment = entry.type == 'partial_payment';
         final isVoided = entry.isVoided;
 
         return Card(
@@ -895,10 +916,16 @@ class _LedgerList extends ConsumerWidget {
           child: ListTile(
             leading: CircleAvatar(
               backgroundColor:
-                  isVoided ? Colors.red.shade50 : (isPayment ? Colors.blue.shade50 : Colors.orange.shade50),
+                  isVoided ? Colors.red.shade50 : 
+                  (isPayment ? Colors.blue.shade50 : 
+                   isPartialPayment ? Colors.purple.shade50 : Colors.orange.shade50),
               child: Icon(
-                isVoided ? Icons.block : (isPayment ? Icons.account_balance_wallet : Icons.credit_card),
-                color: isVoided ? Colors.red.shade700 : (isPayment ? Colors.blue.shade700 : Colors.orange.shade700),
+                isVoided ? Icons.block : 
+                (isPayment ? Icons.account_balance_wallet : 
+                 isPartialPayment ? Icons.payment : Icons.credit_card),
+                color: isVoided ? Colors.red.shade700 : 
+                      (isPayment ? Colors.blue.shade700 : 
+                       isPartialPayment ? Colors.purple.shade700 : Colors.orange.shade700),
                 size: 20,
               ),
             ),
@@ -917,9 +944,11 @@ class _LedgerList extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '${isPayment ? '−' : '+'}${formatCurrency(entry.amountCents)}',
+                  '${(isPayment) ? '−' : '+'}${formatCurrency(entry.amountCents)}',
                   style: TextStyle(
-                    color: isVoided ? Colors.grey.shade600 : (isPayment ? Colors.green[700] : Colors.red[700]),
+                    color: isVoided ? Colors.grey.shade600 : 
+                           (isPayment ? Colors.green[700] : 
+                            isPartialPayment ? Colors.purple[700] : Colors.red[700]),
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
                   ),
@@ -931,7 +960,7 @@ class _LedgerList extends ConsumerWidget {
               ],
             ),
             onTap: () {
-              if (isInvoice) {
+              if (isInvoice || isPartialPayment) {
                 final inv = (invoicesAsync.valueOrNull ?? [])
                     .where((inv) => inv.invoiceNo == entry.description)
                     .firstOrNull;

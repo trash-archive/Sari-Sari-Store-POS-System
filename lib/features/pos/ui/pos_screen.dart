@@ -3,6 +3,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:drift/drift.dart' hide Column;
+import 'dart:io';
 import '../../../app/providers.dart';
 import '../../../app/theme.dart';
 import '../../../core/utils/currency.dart';
@@ -14,7 +15,6 @@ import '../../settings/ui/settings_screen.dart';
 import '../state/cart_provider.dart';
 import '../../utang/state/customers_provider.dart';
 import '../../invoices/ui/invoice_detail_screen.dart';
-import 'dart:io';
 
 class PosScreen extends ConsumerStatefulWidget {
   const PosScreen({super.key});
@@ -848,11 +848,16 @@ class _CartSheetState extends ConsumerState<CartSheet> {
                         ],
                       ),
                     )
-                  : ListView.builder(
-                      controller: scrollCtrl,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      itemCount: cart.items.length,
-                      itemBuilder: (context, i) => _CartItemTile(item: cart.items[i]),
+                  : Scrollbar(
+                      thumbVisibility: true,
+                      thickness: 6,
+                      radius: const Radius.circular(3),
+                      child: ListView.builder(
+                        controller: scrollCtrl,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemCount: cart.items.length,
+                        itemBuilder: (context, i) => _CartItemTile(item: cart.items[i]),
+                      ),
                     ),
             ),
             if (cart.items.isNotEmpty)
@@ -942,6 +947,7 @@ class _CartSheetState extends ConsumerState<CartSheet> {
       cashReceivedCents: _cashReceivedCents,
       changeCents: _changeCents,
       photoPath: photoPath,
+      isPartialPayment: type == 'cash' && customerId != null,
     );
 
     if (!mounted) return;
@@ -1365,27 +1371,8 @@ class _CartSheetState extends ConsumerState<CartSheet> {
       _cashPayerName = result['name'];
       
       if (result['isPartial'] == true) {
-        final customerId = result['customerId'];
-        final remainingBalance = cart.totalCents - _cashReceivedCents!;
-        
-        await ref.read(databaseProvider).transaction(() async {
-          final customer = await ref.read(databaseProvider).customersDao.getCustomerById(customerId);
-          if (customer != null) {
-            await ref.read(databaseProvider).customersDao.updateCustomer(
-              CustomersCompanion(
-                id: Value(customerId),
-                name: Value(customer.name),
-                phone: Value(customer.phone),
-                address: Value(customer.address),
-                notes: Value(customer.notes),
-                balanceCents: Value(customer.balanceCents + remainingBalance),
-                updatedAt: Value(DateTime.now()),
-              ),
-            );
-          }
-        });
-        
-        // Return the result with customerId so it can be used in checkout
+        // For partial payments, we don't update customer balance here
+        // The checkout method will handle it properly
         return result;
       }
       
@@ -1424,7 +1411,7 @@ class _CartItemTile extends ConsumerWidget {
     
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(color: Colors.grey.shade200, width: 1),
@@ -1432,77 +1419,269 @@ class _CartItemTile extends ConsumerWidget {
       ),
       child: Row(
         children: [
+          // Product Image
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: item.product.imagePath != null
+                  ? Image.file(
+                      File(item.product.imagePath!),
+                      fit: BoxFit.cover,
+                      width: 60,
+                      height: 60,
+                    )
+                  : Container(
+                      color: AppTheme.surface,
+                      width: 60,
+                      height: 60,
+                      child: Icon(
+                        Icons.inventory_2_outlined,
+                        size: 24,
+                        color: Colors.grey.shade400,
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Product Details
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Product Name with ellipsis
                 Text(
                   item.product.name,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: AppTheme.textPrimary),
-                  maxLines: 3,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                    color: AppTheme.textPrimary,
+                  ),
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '${formatCurrency(item.product.priceCents)} × ${item.qty}',
-                  style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.remove, size: 18),
-                  onPressed: () => notifier.updateQty(item.product.id, item.qty - 1),
-                  padding: const EdgeInsets.all(4),
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text('${item.qty}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-                ),
-                IconButton(
-                  icon: Icon(Icons.add, size: 18, color: canIncrease ? AppTheme.textPrimary : Colors.grey),
-                  onPressed: canIncrease ? () {
-                    notifier.updateQty(item.product.id, item.qty + 1);
-                  } : () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Row(
-                          children: [
-                            Icon(Icons.error, color: Colors.white, size: 20),
-                            const SizedBox(width: 12),
-                            Text('Cannot exceed available stock'),
-                          ],
-                        ),
-                        backgroundColor: Color(0xFFE65100),
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        duration: Duration(seconds: 1),
+                const SizedBox(height: 8),
+                // Quantity Controls and Total
+                Row(
+                  children: [
+                    // Quantity Controls
+                    _QuantityControls(
+                      quantity: item.qty,
+                      maxStock: item.product.stockQty,
+                      productId: item.product.id,
+                      onQuantityChanged: (newQty) {
+                        notifier.updateQty(item.product.id, newQty);
+                      },
+                    ),
+                    const Spacer(),
+                    // Total Amount
+                    Text(
+                      formatCurrency(item.lineTotalCents),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: AppTheme.textPrimary,
                       ),
-                    );
-                  },
-                  padding: const EdgeInsets.all(4),
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            formatCurrency(item.lineTotalCents),
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimary),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _QuantityControls extends StatefulWidget {
+  final int quantity;
+  final int maxStock;
+  final String productId;
+  final Function(int) onQuantityChanged;
+
+  const _QuantityControls({
+    required this.quantity,
+    required this.maxStock,
+    required this.productId,
+    required this.onQuantityChanged,
+  });
+
+  @override
+  State<_QuantityControls> createState() => _QuantityControlsState();
+}
+
+class _QuantityControlsState extends State<_QuantityControls> {
+  late TextEditingController _controller;
+  bool _isEditing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.quantity.toString());
+  }
+
+  @override
+  void didUpdateWidget(_QuantityControls oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.quantity != oldWidget.quantity && !_isEditing) {
+      _controller.text = widget.quantity.toString();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _decreaseQuantity() {
+    if (widget.quantity > 1) {
+      widget.onQuantityChanged(widget.quantity - 1);
+    } else {
+      widget.onQuantityChanged(0); // This will remove the item
+    }
+  }
+
+  void _increaseQuantity() {
+    if (widget.quantity < widget.maxStock) {
+      widget.onQuantityChanged(widget.quantity + 1);
+    } else {
+      _showStockLimitMessage();
+    }
+  }
+
+  void _showStockLimitMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.error, color: Colors.white, size: 20),
+            const SizedBox(width: 12),
+            Text('Cannot exceed available stock (${widget.maxStock})'),
+          ],
+        ),
+        backgroundColor: Color(0xFFE65100),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _onQuantitySubmitted(String value) {
+    setState(() => _isEditing = false);
+    
+    final newQty = int.tryParse(value);
+    if (newQty == null || newQty < 1) {
+      // Invalid input, reset to current quantity
+      _controller.text = widget.quantity.toString();
+      return;
+    }
+    
+    if (newQty > widget.maxStock) {
+      // Exceeds stock, set to max stock and show message
+      _controller.text = widget.maxStock.toString();
+      widget.onQuantityChanged(widget.maxStock);
+      _showStockLimitMessage();
+    } else {
+      // Valid quantity
+      widget.onQuantityChanged(newQty);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canIncrease = widget.quantity < widget.maxStock;
+    
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Decrease button
+        GestureDetector(
+          onTap: _decreaseQuantity,
+          child: Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: const Icon(
+              Icons.remove,
+              size: 16,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        // Quantity input
+        GestureDetector(
+          onTap: () {
+            setState(() => _isEditing = true);
+            _controller.selection = TextSelection(
+              baseOffset: 0,
+              extentOffset: _controller.text.length,
+            );
+          },
+          child: Container(
+            width: 40,
+            height: 28,
+            alignment: Alignment.center,
+            child: _isEditing
+                ? TextField(
+                    controller: _controller,
+                    autofocus: true,
+                    textAlign: TextAlign.center,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
+                      isDense: true,
+                    ),
+                    onSubmitted: _onQuantitySubmitted,
+                    onTapOutside: (_) {
+                      _onQuantitySubmitted(_controller.text);
+                    },
+                  )
+                : Text(
+                    widget.quantity.toString(),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        // Increase button
+        GestureDetector(
+          onTap: _increaseQuantity,
+          child: Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: canIncrease ? Colors.grey.shade100 : Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(
+              Icons.add,
+              size: 16,
+              color: canIncrease ? AppTheme.textPrimary : Colors.grey.shade400,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1516,11 +1695,6 @@ class _CustomerPickerDialog extends ConsumerStatefulWidget {
 }
 
 class _CustomerPickerDialogState extends ConsumerState<_CustomerPickerDialog> {
-  final _nameCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
-  bool _creating = false;
-
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -1533,8 +1707,8 @@ class _CustomerPickerDialogState extends ConsumerState<_CustomerPickerDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.all(20),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
               child: Row(
                 children: [
                   const Text('Select Customer', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
@@ -1549,74 +1723,27 @@ class _CustomerPickerDialogState extends ConsumerState<_CustomerPickerDialog> {
               ),
             ),
             Divider(height: 1, color: Colors.grey.shade200),
-            Flexible(
-              child: _creating
+            Expanded(
+              child: widget.customers.isEmpty
                   ? Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: SingleChildScrollView(
-                        child: Form(
-                          key: _formKey,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  const Text('Customer Name', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
-                                  const Text(' *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.red)),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              TextFormField(
-                                controller: _nameCtrl,
-                                decoration: InputDecoration(
-                                  hintText: 'Enter customer name',
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                  errorMaxLines: 2,
-                                ),
-                                autovalidateMode: AutovalidateMode.onUserInteraction,
-                                validator: (v) {
-                                  if (v?.trim().isEmpty ?? true) return 'Customer name is required';
-                                  if (v!.trim().length > 30) return 'Name must be 30 characters or less';
-                                  // Check for duplicate
-                                  final exists = widget.customers.any((c) => c.name.toLowerCase() == v.trim().toLowerCase());
-                                  if (exists) return 'Customer with this name already exists';
-                                  return null;
-                                },
-                              ),
-                              const SizedBox(height: 16),
-                              const Text('Phone (optional)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
-                              const SizedBox(height: 8),
-                              TextField(
-                                controller: _phoneCtrl,
-                                decoration: InputDecoration(
-                                  hintText: 'Enter phone number',
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                      padding: const EdgeInsets.all(40),
+                      child: Column(
+                        children: [
+                          Icon(Icons.people_outline, size: 48, color: Colors.grey.shade400),
+                          const SizedBox(height: 12),
+                          Text('No customers yet', style: TextStyle(color: AppTheme.textSecondary)),
+                        ],
                       ),
                     )
-                  : Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (widget.customers.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.all(40),
-                            child: Column(
-                              children: [
-                                Icon(Icons.people_outline, size: 48, color: Colors.grey.shade400),
-                                const SizedBox(height: 12),
-                                Text('No customers yet', style: TextStyle(color: AppTheme.textSecondary)),
-                              ],
-                            ),
-                          )
-                        else
-                          ...widget.customers.map((c) => InkWell(
+                  : Scrollbar(
+                      thumbVisibility: true,
+                      thickness: 6,
+                      radius: const Radius.circular(3),
+                      child: ListView.builder(
+                        itemCount: widget.customers.length,
+                        itemBuilder: (context, index) {
+                          final c = widget.customers[index];
+                          return InkWell(
                             onTap: () => Navigator.pop(context, {'id': c.id, 'name': c.name}),
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -1646,8 +1773,9 @@ class _CustomerPickerDialogState extends ConsumerState<_CustomerPickerDialog> {
                                 ],
                               ),
                             ),
-                          )),
-                      ],
+                          );
+                        },
+                      ),
                     ),
             ),
             Container(
@@ -1671,32 +1799,12 @@ class _CustomerPickerDialogState extends ConsumerState<_CustomerPickerDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _creating
-                          ? () async {
-                              if (!_formKey.currentState!.validate()) return;
-                              try {
-                                final id = await ref.read(customersNotifierProvider.notifier).addCustomer(
-                                  name: _nameCtrl.text.trim(),
-                                  phone: _phoneCtrl.text.isEmpty ? null : _phoneCtrl.text,
-                                );
-                                if (context.mounted) Navigator.pop(context, {'id': id, 'name': _nameCtrl.text.trim()});
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(e.toString().replaceAll('Exception: ', '')),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                }
-                              }
-                            }
-                          : () => setState(() => _creating = true),
+                      onPressed: () => _showAddCustomerDialog(context),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: Text(_creating ? 'Save' : 'New Customer'),
+                      child: const Text('New Customer'),
                     ),
                   ),
                 ],
@@ -1708,10 +1816,167 @@ class _CustomerPickerDialogState extends ConsumerState<_CustomerPickerDialog> {
     );
   }
 
-  @override
-  void dispose() {
-    _nameCtrl.dispose();
-    _phoneCtrl.dispose();
-    super.dispose();
+  void _showAddCustomerDialog(BuildContext context) async {
+    final nameCtrl = TextEditingController();
+    final phoneCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    
+    // Fetch all customers for duplicate validation
+    final allCustomers = await ref.read(databaseProvider).customersDao.searchCustomers('');
+    
+    if (!context.mounted) return;
+
+    final result = await showDialog<Map<String, String>?>(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          color: Colors.white,
+          constraints: const BoxConstraints(maxWidth: 400),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
+                child: Row(
+                  children: [
+                    const Text('Add Customer', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 20),
+                      onPressed: () => Navigator.pop(ctx),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(height: 1, color: Colors.grey.shade200),
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text('Customer Name', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1A1A1A))),
+                          const Text(' *', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.red)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: nameCtrl,
+                        autofocus: true,
+                        decoration: InputDecoration(
+                          hintText: 'Enter customer name',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          errorMaxLines: 2,
+                        ),
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        validator: (v) {
+                          if (v?.trim().isEmpty ?? true) return 'Customer name is required';
+                          if (v!.trim().length > 30) return 'Name must be 30 characters or less';
+                          // Check for duplicate
+                          final exists = allCustomers.any((c) => c.name.toLowerCase() == v.trim().toLowerCase());
+                          if (exists) return 'Customer with this name already exists';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      const Text('Phone (optional)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1A1A1A))),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: phoneCtrl,
+                        decoration: InputDecoration(
+                          hintText: 'Enter phone number',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        ),
+                        keyboardType: TextInputType.phone,
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: const Text('Cancel'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () async {
+                                if (formKey.currentState!.validate()) {
+                                  try {
+                                    final id = await ref.read(customersNotifierProvider.notifier).addCustomer(
+                                      name: nameCtrl.text.trim(),
+                                      phone: phoneCtrl.text.isEmpty ? null : phoneCtrl.text.trim(),
+                                    );
+                                    if (ctx.mounted) {
+                                      Navigator.pop(ctx, {'id': id, 'name': nameCtrl.text.trim()});
+                                    }
+                                  } catch (e) {
+                                    // This shouldn't happen since we validate inline, but just in case
+                                    if (ctx.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(e.toString().replaceAll('Exception: ', '')),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: const Text('Add'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (result != null && context.mounted) {
+      // Close the customer picker dialog and return the new customer
+      Navigator.pop(context, result);
+      
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white, size: 20),
+              const SizedBox(width: 12),
+              Text('Customer added'),
+            ],
+          ),
+          backgroundColor: Color(0xFF2E7D32),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+    }
   }
 }

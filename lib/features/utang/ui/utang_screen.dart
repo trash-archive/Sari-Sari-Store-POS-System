@@ -17,11 +17,13 @@ class UtangScreen extends ConsumerStatefulWidget {
 
 class _UtangScreenState extends ConsumerState<UtangScreen> {
   final _searchCtrl = TextEditingController();
+  final _scrollController = ScrollController();
   String _search = '';
 
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -175,6 +177,8 @@ class _UtangScreenState extends ConsumerState<UtangScreen> {
                             .contains(_search.toLowerCase()))
                         .toList();
 
+                filtered.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+
                 if (filtered.isEmpty && customers.isEmpty) {
                   return Center(
                     child: Column(
@@ -233,129 +237,126 @@ class _UtangScreenState extends ConsumerState<UtangScreen> {
                   );
                 }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
-                  itemCount: filtered.length,
-                  itemBuilder: (context, i) {
-                    final c = filtered[i];
-                    final initial = c.name.isNotEmpty ? c.name[0].toUpperCase() : '?';
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.grey.shade200),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(16),
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) =>
-                                    CustomerDetailScreen(customer: c)),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(18),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 48,
-                                  height: 48,
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.shade100,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      initial,
-                                      style: TextStyle(
-                                        color: Colors.grey.shade700,
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
+                return Stack(
+                  children: [
+                    Scrollbar(
+                      controller: _scrollController,
+                      thumbVisibility: true,
+                      thickness: 6,
+                      radius: const Radius.circular(3),
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
+                        itemCount: filtered.length,
+                        itemBuilder: (context, i) {
+                          final c = filtered[i];
+                          final initial = c.name.isNotEmpty ? c.name[0].toUpperCase() : '?';
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.grey.shade200),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.04),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
                                 ),
-                                const SizedBox(width: 16),
-                                Expanded(
+                              ],
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(16),
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) =>
+                                          CustomerDetailScreen(customer: c)),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(18),
                                   child: Row(
                                     children: [
                                       Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                        child: Row(
                                           children: [
-                                            Text(
-                                              c.name,
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 16,
-                                                color: AppTheme.textPrimary,
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    c.name,
+                                                    style: const TextStyle(
+                                                      fontWeight: FontWeight.w600,
+                                                      fontSize: 16,
+                                                      color: AppTheme.textPrimary,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                  if (c.phone != null)
+                                                    Padding(
+                                                      padding: const EdgeInsets.only(top: 4),
+                                                      child: Text(
+                                                        c.phone!,
+                                                        style: TextStyle(
+                                                          fontSize: 14,
+                                                          color: Colors.grey.shade600,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                ],
                                               ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
                                             ),
-                                            if (c.phone != null)
-                                              Padding(
-                                                padding: const EdgeInsets.only(top: 4),
+                                            if (c.balanceCents > 0) ...[
+                                              const SizedBox(width: 16),
+                                              Text(
+                                                formatCurrency(c.balanceCents),
+                                                style: const TextStyle(
+                                                  color: Colors.red,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 16,
+                                                ),
+                                              ),
+                                            ] else ...[
+                                              const SizedBox(width: 16),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.grey.shade100,
+                                                  borderRadius: BorderRadius.circular(12),
+                                                ),
                                                 child: Text(
-                                                  c.phone!,
+                                                  'Clear',
                                                   style: TextStyle(
-                                                    fontSize: 14,
                                                     color: Colors.grey.shade600,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w500,
                                                   ),
                                                 ),
                                               ),
+                                            ],
                                           ],
                                         ),
                                       ),
-                                      if (c.balanceCents > 0) ...[
-                                        const SizedBox(width: 16),
-                                        Text(
-                                          formatCurrency(c.balanceCents),
-                                          style: const TextStyle(
-                                            color: Color(0xFF1A1A1A),
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                      ] else ...[
-                                        const SizedBox(width: 16),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: Colors.grey.shade100,
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                          child: Text(
-                                            'Clear',
-                                            style: TextStyle(
-                                              color: Colors.grey.shade600,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
+
                                     ],
                                   ),
                                 ),
-
-                              ],
+                              ),
                             ),
-                          ),
-                        ),
+                          );
+                        },
                       ),
-                    );
-                  },
+                    ),
+                    if (filtered.length > 5)
+                      _AlphabetScrollBar(
+                        customers: filtered,
+                        scrollController: _scrollController,
+                      ),
+                  ],
                 );
               },
             ),
@@ -525,5 +526,72 @@ class _UtangScreenState extends ConsumerState<UtangScreen> {
         ),
       ),
     );
+  }
+}
+
+class _AlphabetScrollBar extends StatelessWidget {
+  final List<Customer> customers;
+  final ScrollController scrollController;
+
+  const _AlphabetScrollBar({
+    required this.customers,
+    required this.scrollController,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+    
+    return Positioned(
+      right: 4,
+      top: 0,
+      bottom: 100,
+      child: Container(
+        width: 20,
+        alignment: Alignment.center,
+        child: ListView.builder(
+          shrinkWrap: true,
+          itemCount: letters.length,
+          itemBuilder: (context, index) {
+            final letter = letters[index];
+            final hasCustomer = customers.any((c) => 
+              c.name.isNotEmpty && c.name[0].toUpperCase() == letter
+            );
+            
+            return GestureDetector(
+              onTap: hasCustomer ? () => _scrollToLetter(letter) : null,
+              child: Container(
+                height: 14,
+                alignment: Alignment.center,
+                child: Text(
+                  letter,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: hasCustomer ? AppTheme.primary : Colors.grey.shade300,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _scrollToLetter(String letter) {
+    final index = customers.indexWhere((c) => 
+      c.name.isNotEmpty && c.name[0].toUpperCase() == letter
+    );
+    
+    if (index != -1 && scrollController.hasClients) {
+      final itemHeight = 88.0;
+      final position = index * itemHeight;
+      scrollController.animateTo(
+        position,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 }

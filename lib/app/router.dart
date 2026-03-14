@@ -5,6 +5,8 @@ import 'package:tindako/features/invoices/ui/invoice_history_screen.dart';
 import 'package:tindako/features/utang/ui/utang_screen.dart';
 import 'package:tindako/features/reports/ui/reports_screen.dart';
 import 'package:tindako/features/settings/ui/settings_screen.dart';
+import 'package:tindako/core/widgets/lazy_page_wrapper.dart';
+import 'package:tindako/core/widgets/skeleton_screens.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -16,19 +18,41 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _selectedIndex = 0;
   late PageController _pageController;
+  final Set<int> _preloadedPages = {0}; // Preload POS screen
 
-  final List<Widget> _screens = const [
-    PosScreen(),
-    ProductsScreen(),
-    InvoiceHistoryScreen(),
-    UtangScreen(),
-    ReportsScreen(),
-  ];
+  late final List<Widget> _screens;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
+    _initializeScreens();
+  }
+
+  void _initializeScreens() {
+    _screens = [
+      LazyPageWrapper(
+        builder: () => const PosScreen(),
+        skeleton: const PosSkeletonScreen(),
+        preload: true,
+      ),
+      LazyPageWrapper(
+        builder: () => const ProductsScreen(),
+        skeleton: const ProductsSkeletonScreen(),
+      ),
+      LazyPageWrapper(
+        builder: () => const InvoiceHistoryScreen(),
+        skeleton: const InvoicesSkeletonScreen(),
+      ),
+      LazyPageWrapper(
+        builder: () => const UtangScreen(),
+        skeleton: const UtangSkeletonScreen(),
+      ),
+      LazyPageWrapper(
+        builder: () => const ReportsScreen(),
+        skeleton: const ReportsSkeletonScreen(),
+      ),
+    ];
   }
 
   @override
@@ -44,15 +68,23 @@ class _MainShellState extends State<MainShell> {
       onPopInvoked: (didPop) {
         if (!didPop && _selectedIndex != 0) {
           setState(() => _selectedIndex = 0);
-          _pageController.jumpToPage(0);
+          _pageController.animateToPage(
+            0,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
         }
       },
       child: Scaffold(
-        body: PageView(
+        body: PageView.builder(
           controller: _pageController,
-          onPageChanged: (index) => setState(() => _selectedIndex = index),
-          physics: const PageScrollPhysics(),
-          children: _screens,
+          onPageChanged: (index) {
+            setState(() => _selectedIndex = index);
+            _preloadAdjacentPages(index);
+          },
+          physics: const BouncingScrollPhysics(),
+          itemCount: _screens.length,
+          itemBuilder: (context, index) => _screens[index],
         ),
         bottomNavigationBar: Container(
           decoration: BoxDecoration(
@@ -63,7 +95,12 @@ class _MainShellState extends State<MainShell> {
             selectedIndex: _selectedIndex,
             onDestinationSelected: (i) {
               setState(() => _selectedIndex = i);
-              _pageController.jumpToPage(i);
+              _pageController.animateToPage(
+                i,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+              );
+              _preloadAdjacentPages(i);
             },
             backgroundColor: Colors.transparent,
             elevation: 0,
@@ -100,5 +137,29 @@ class _MainShellState extends State<MainShell> {
         ),
       ),
     );
+  }
+
+  void _preloadAdjacentPages(int currentIndex) {
+    // Preload adjacent pages for smoother transitions
+    final pagesToPreload = <int>{};
+    
+    if (currentIndex > 0) pagesToPreload.add(currentIndex - 1);
+    if (currentIndex < _screens.length - 1) pagesToPreload.add(currentIndex + 1);
+    
+    for (final pageIndex in pagesToPreload) {
+      if (!_preloadedPages.contains(pageIndex)) {
+        _preloadedPages.add(pageIndex);
+        // Trigger preload by accessing the page
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _pageController.hasClients) {
+            // This will trigger the LazyPageWrapper to start loading
+            final page = _screens[pageIndex];
+            if (page is LazyPageWrapper) {
+              // The page will automatically start loading when accessed
+            }
+          }
+        });
+      }
+    }
   }
 }

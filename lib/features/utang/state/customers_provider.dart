@@ -26,7 +26,10 @@ final customerPaymentsProvider = StreamProvider.family<List<CustomerPayment>, St
 final customerUtangInvoicesProvider = StreamProvider.family<List<Invoice>, String>((ref, customerId) {
   final db = ref.watch(databaseProvider);
   return (db.select(db.invoices)
-    ..where((i) => i.customerId.equals(customerId) & i.type.equals('utang'))
+    ..where((i) => 
+      i.customerId.equals(customerId) & 
+      (i.type.equals('utang') | i.type.equals('cash')) &
+      i.status.equals('active'))
     ..orderBy([(i) => OrderingTerm.desc(i.createdAt)])).watch();
 });
 

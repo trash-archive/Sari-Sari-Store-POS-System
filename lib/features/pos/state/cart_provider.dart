@@ -96,6 +96,7 @@ class CartNotifier extends Notifier<CartState> {
     int? cashReceivedCents,
     int? changeCents,
     String? photoPath,
+    bool isPartialPayment = false,
   }) async {
     if (state.items.isEmpty) return null;
     
@@ -112,16 +113,32 @@ class CartNotifier extends Notifier<CartState> {
     final invoiceNo = '${AppConstants.invoicePrefix}-${now.year}${now.month.toString().padLeft(2,'0')}${now.day.toString().padLeft(2,'0')}-${invoiceNum.toString().padLeft(4,'0')}';
     final invoiceId = _uuid.v4();
 
+    // For partial payments, determine the invoice type and customer balance increase
+    String invoiceType = type;
+    int? customerBalanceIncrease;
+    int displayAmount = state.totalCents; // Amount to display in transaction history
+    
+    if (isPartialPayment && customerId != null) {
+      // For partial payments, keep as 'cash' but link to customer and add remaining balance
+      invoiceType = 'cash';
+      customerBalanceIncrease = state.totalCents - (cashReceivedCents ?? 0);
+      displayAmount = customerBalanceIncrease; // Show only the utang amount in history
+    } else if (type == 'utang' && customerId != null) {
+      customerBalanceIncrease = state.totalCents;
+    }
+
     final invoiceData = InvoicesCompanion(
       id: Value(invoiceId),
       invoiceNo: Value(invoiceNo),
-      type: Value(type),
+      type: Value(invoiceType),
       customerId: Value(customerId),
       subtotalCents: Value(state.subtotalCents),
       discountCents: Value(state.discountCents),
       totalCents: Value(state.totalCents),
       cashReceivedCents: Value(cashReceivedCents),
       changeCents: Value(changeCents),
+      balanceBeforeCents: isPartialPayment && customerId != null ? Value(0) : const Value.absent(),
+      balanceAfterCents: isPartialPayment && customerId != null ? Value(customerBalanceIncrease) : const Value.absent(),
       notes: Value(notes),
       photoPath: Value(photoPath),
       createdAt: Value(now),
@@ -156,8 +173,8 @@ class CartNotifier extends Notifier<CartState> {
       items: items,
       movements: movements,
       stockUpdates: stockUpdates,
-      customerId: type == 'utang' ? customerId : null,
-      customerBalanceIncrease: type == 'utang' ? state.totalCents : null,
+      customerId: customerId,
+      customerBalanceIncrease: customerBalanceIncrease,
     );
 
     clear();

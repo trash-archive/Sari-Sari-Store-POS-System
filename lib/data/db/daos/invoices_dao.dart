@@ -30,7 +30,15 @@ class InvoicesDao extends DatabaseAccessor<AppDatabase> with _$InvoicesDaoMixin 
       (select(db.invoices)
         ..where((i) =>
           i.customerId.equals(customerId) &
-          i.type.equals('utang'))
+          (i.type.equals('utang') | i.type.equals('cash')) &
+          i.status.equals('active'))
+        ..orderBy([(i) => OrderingTerm.desc(i.createdAt)])).get();
+
+  Future<List<Invoice>> getAllInvoicesForCustomer(String customerId) =>
+      (select(db.invoices)
+        ..where((i) =>
+          i.customerId.equals(customerId) &
+          i.status.equals('active'))
         ..orderBy([(i) => OrderingTerm.desc(i.createdAt)])).get();
 
   // Checkout transaction
@@ -43,7 +51,23 @@ class InvoicesDao extends DatabaseAccessor<AppDatabase> with _$InvoicesDaoMixin 
     int? customerBalanceIncrease,
   }) async {
     return db.transaction(() async {
-      final invoice = await into(db.invoices).insertReturning(invoiceData);
+      // Get customer balance before update if needed
+      Customer? customer;
+      if (customerId != null) {
+        customer = await (select(db.customers)
+          ..where((c) => c.id.equals(customerId))).getSingleOrNull();
+      }
+
+      // Update invoice data with proper balance information
+      InvoicesCompanion finalInvoiceData = invoiceData;
+      if (customer != null && customerBalanceIncrease != null) {
+        finalInvoiceData = invoiceData.copyWith(
+          balanceBeforeCents: Value(customer.balanceCents),
+          balanceAfterCents: Value(customer.balanceCents + customerBalanceIncrease),
+        );
+      }
+
+      final invoice = await into(db.invoices).insertReturning(finalInvoiceData);
 
       for (final item in items) {
         await into(db.invoiceItems).insert(item);
@@ -59,11 +83,9 @@ class InvoicesDao extends DatabaseAccessor<AppDatabase> with _$InvoicesDaoMixin 
       }
 
       if (customerId != null && customerBalanceIncrease != null) {
-        final customer = await (select(db.customers)
-          ..where((c) => c.id.equals(customerId))).getSingle();
         await (update(db.customers)..where((c) => c.id.equals(customerId)))
           .write(CustomersCompanion(
-            balanceCents: Value(customer.balanceCents + customerBalanceIncrease),
+            balanceCents: Value(customer!.balanceCents + customerBalanceIncrease),
             updatedAt: Value(DateTime.now()),
           ));
       }
