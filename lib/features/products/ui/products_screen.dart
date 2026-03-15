@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -630,12 +631,16 @@ class _ProductList extends ConsumerWidget {
                             child: SizedBox(
                               width: 72,
                               height: 72,
-                              child: p.imagePath != null
-                                  ? Image.file(File(p.imagePath!), fit: BoxFit.cover)
-                                  : Container(
-                                      color: const Color(0xFFF8F9FA),
-                                      child: Icon(Icons.inventory_2_outlined, color: Colors.grey[400], size: 36),
-                                    ),
+                              child: p.imageData != null
+                                  ? Image.memory(p.imageData!, fit: BoxFit.cover)
+                                  : p.imagePath != null
+                                      ? Image.file(File(p.imagePath!), fit: BoxFit.cover)
+                                      : p.imageUrl != null
+                                          ? Image.network(p.imageUrl!, fit: BoxFit.cover)
+                                          : Container(
+                                              color: const Color(0xFFF8F9FA),
+                                              child: Icon(Icons.inventory_2_outlined, color: Colors.grey[400], size: 36),
+                                            ),
                             ),
                           ),
                           const SizedBox(width: 14),

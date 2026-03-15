@@ -1,9 +1,9 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'dart:io';
 import 'dart:ui' as ui;
-import 'dart:typed_data';
 import 'package:flutter/rendering.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../data/db/app_database.dart';
@@ -30,7 +30,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   final _stockCtrl = TextEditingController();
   final _thresholdCtrl = TextEditingController();
   String? _selectedCategoryId;
-  String? _imagePath;
+  String? _imagePath; // kept for legacy/file reference only
+  Uint8List? _imageBytes;
+  String? _imageUrl; // existing remote URL (from Supabase)
   String _selectedUnit = 'pc';
   final _transformationController = TransformationController();
   final _boundaryKey = GlobalKey();
@@ -80,6 +82,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       _thresholdCtrl.text = p.lowStockThreshold.toString();
       _selectedCategoryId = p.categoryId;
       _imagePath = p.imagePath;
+      _imageBytes = p.imageData;
+      _imageUrl = p.imageUrl;
     } else {
       _stockCtrl.text = '0';
       _thresholdCtrl.text = '5';
@@ -422,12 +426,13 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   }
 
   Widget _buildImageSection() {
+    final hasImage = _imageBytes != null || _imagePath != null || _imageUrl != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildLabel('Product Image'),
         const SizedBox(height: 8),
-        if (_imagePath != null)
+        if (hasImage)
           Center(
             child: SizedBox(
               width: 280,
@@ -461,15 +466,12 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                         double scale = matrix.getMaxScaleOnAxis();
                         final translation = matrix.getTranslation();
                         
-                        // Calculate minimum scale to fill square
                         final scaleX = 280 / _imageSize!.width;
                         final scaleY = 280 / _imageSize!.height;
                         final minScale = scaleX > scaleY ? scaleX : scaleY;
                         
-                        // Enforce minimum scale
                         if (scale < minScale) scale = minScale;
                         
-                        // Calculate boundaries with corrected scale
                         final scaledWidth = _imageSize!.width * scale;
                         final scaledHeight = _imageSize!.height * scale;
                         
@@ -478,18 +480,18 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                         final maxDy = 0.0;
                         final minDy = 280 - scaledHeight;
                         
-                        // Clamp translation
                         final clampedDx = translation.x.clamp(minDx, maxDx);
                         final clampedDy = translation.y.clamp(minDy, maxDy);
                         
-                        // Apply corrected transformation
                         _transformationController.value = Matrix4.identity()
                           ..translate(clampedDx, clampedDy)
                           ..scale(scale);
                       },
-                      child: Image.file(
-                        File(_imagePath!),
-                      ),
+                      child: _imageBytes != null
+                          ? Image.memory(_imageBytes!)
+                          : _imagePath != null
+                              ? Image.file(File(_imagePath!))
+                              : Image.network(_imageUrl!),
                     ),
                   ),
                 ),
@@ -512,7 +514,11 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   child: Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      onTap: () => setState(() => _imagePath = null),
+                      onTap: () => setState(() {
+                        _imagePath = null;
+                        _imageBytes = null;
+                        _imageUrl = null;
+                      }),
                       borderRadius: BorderRadius.circular(20),
                       child: const Padding(
                         padding: EdgeInsets.all(8),
@@ -606,8 +612,10 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     final pickedFile = await picker.pickImage(source: source);
     if (pickedFile != null) {
       final savedPath = await ImageStorageService.saveProductImage(File(pickedFile.path));
+      final bytes = await File(savedPath).readAsBytes();
       setState(() {
         _imagePath = savedPath;
+        _imageBytes = bytes;
         _imageSize = null;
       });
       _loadImageAndSetInitialScale();
@@ -615,10 +623,12 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   }
 
   Future<void> _loadImageAndSetInitialScale() async {
-    if (_imagePath == null) return;
+    if (_imageBytes == null && _imagePath == null) return;
     
-    final image = Image.file(File(_imagePath!));
-    final completer = image.image.resolve(const ImageConfiguration());
+    final imageProvider = _imageBytes != null
+        ? MemoryImage(_imageBytes!) as ImageProvider
+        : FileImage(File(_imagePath!));
+    final completer = imageProvider.resolve(const ImageConfiguration());
     completer.addListener(ImageStreamListener((info, _) {
       final imgWidth = info.image.width.toDouble();
       final imgHeight = info.image.height.toDouble();
@@ -661,8 +671,13 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     final threshold = int.tryParse(_thresholdCtrl.text) ?? 5;
 
     String? finalImagePath = _imagePath;
-    if (_imagePath != null) {
-      finalImagePath = await _captureAdjustedImage();
+    Uint8List? finalImageBytes = _imageBytes;
+    if (_imagePath != null || _imageBytes != null) {
+      final captured = await _captureAdjustedImage();
+      if (captured != null) {
+        finalImagePath = captured;
+        finalImageBytes = await File(captured).readAsBytes();
+      }
     }
 
     if (widget.product == null) {
@@ -677,6 +692,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         stockQty: stockQty,
         lowStockThreshold: threshold,
         imagePath: finalImagePath,
+        imageData: finalImageBytes,
+        imageUrl: _imageUrl,
       );
     } else {
       await ref.read(productsNotifierProvider.notifier).updateProduct(
@@ -691,6 +708,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         stockQty: stockQty,
         lowStockThreshold: threshold,
         imagePath: finalImagePath,
+        imageData: finalImageBytes,
+        imageUrl: _imageUrl,
       );
     }
 
