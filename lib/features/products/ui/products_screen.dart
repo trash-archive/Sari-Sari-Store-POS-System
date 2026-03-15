@@ -715,23 +715,26 @@ class _ProductList extends ConsumerWidget {
 
   IconData _getUnitIcon(String unit) {
     switch (unit.toLowerCase()) {
-      case 'pc':
-      case 'pack':
-        return Icons.inventory_2;
-      case 'box':
-        return Icons.inventory;
-      case 'bottle':
-        return Icons.local_drink;
-      case 'can':
-        return Icons.coffee;
+      case 'piece': return Icons.circle_outlined;
+      case 'pack': return Icons.inventory_2_outlined;
+      case 'sachet': return Icons.rectangle_outlined;
+      case 'box': return Icons.check_box_outline_blank;
+      case 'bottle': return Icons.water_drop_outlined;
+      case 'can': return Icons.coffee_outlined;
+      case 'jar': return Icons.local_drink_outlined;
+      case 'tube': return Icons.horizontal_rule;
+      case 'bar': return Icons.crop_din;
+      case 'roll': return Icons.rotate_right_outlined;
+      case 'loaf': return Icons.bakery_dining_outlined;
+      case 'bundle': return Icons.layers_outlined;
+      case 'tray': return Icons.grid_view_outlined;
+      case 'sack': return Icons.shopping_bag_outlined;
       case 'kg':
-      case 'g':
-        return Icons.scale;
+      case 'g': return Icons.monitor_weight_outlined;
       case 'l':
       case 'ml':
-        return Icons.water_drop;
-      default:
-        return Icons.inventory_2;
+      case 'gal': return Icons.water_outlined;
+      default: return Icons.straighten;
     }
   }
 }

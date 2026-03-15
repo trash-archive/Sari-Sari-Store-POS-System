@@ -63,7 +63,14 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Sell Products', style: TextStyle(fontWeight: FontWeight.w600)),
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            ref.watch(settingsProvider).storeName,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ),
         actions: [
           if (cart.itemCount > 0)
             Padding(

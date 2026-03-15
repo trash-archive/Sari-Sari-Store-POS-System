@@ -3,9 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'dart:io';
-import 'dart:ui' as ui;
-import 'package:flutter/rendering.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:crop_your_image/crop_your_image.dart';
 import '../../../data/db/app_database.dart';
 import '../../../core/utils/currency.dart';
 import '../../../data/services/image_storage_service.dart';
@@ -33,13 +32,11 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   String? _imagePath; // kept for legacy/file reference only
   Uint8List? _imageBytes;
   String? _imageUrl; // existing remote URL (from Supabase)
-  String _selectedUnit = 'pc';
-  final _transformationController = TransformationController();
-  final _boundaryKey = GlobalKey();
-  Size? _imageSize;
+  String _selectedUnit = 'piece';
+
 
   final Map<String, String> _units = {
-    'pc': 'Piece',
+    'piece': 'Piece (pc)',
     'pack': 'Pack',
     'sachet': 'Sachet',
     'box': 'Box',
@@ -53,20 +50,15 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     'bundle': 'Bundle',
     'tray': 'Tray',
     'sack': 'Sack',
-    'kg': 'Kilogram',
-    'g': 'Gram',
-    'L': 'Liter',
-    'mL': 'Milliliter',
-    'gal': 'Gallon',
+    'kg': 'Kilogram (kg)',
+    'g': 'Gram (g)',
+    'L': 'Liter (L)',
+    'mL': 'Milliliter (mL)',
+    'gal': 'Gallon (gal)',
   };
 
-  String _getUnitDisplay(String key) {
-    final name = _units[key] ?? key;
-    if (key == 'kg' || key == 'g' || key == 'L' || key == 'mL' || key == 'gal') {
-      return '$name ($key)';
-    }
-    return name;
-  }
+  String _getUnitDisplay(String key) => _units[key] ?? key;
+
 
   @override
   void initState() {
@@ -75,7 +67,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       final p = widget.product!;
       _nameCtrl.text = p.name;
       _descCtrl.text = p.description ?? '';
-      _selectedUnit = p.unit;
+      _selectedUnit = _units.containsKey(p.unit) ? p.unit : 'piece';
       _priceCtrl.text = (p.priceCents / 100).toStringAsFixed(2);
       _costCtrl.text = p.costCents != null ? (p.costCents! / 100).toStringAsFixed(2) : '';
       _stockCtrl.text = p.stockQty.toString();
@@ -440,113 +432,46 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
               child: Stack(
                 children: [
                   Container(
-                width: double.infinity,
-                height: 280,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppTheme.primary, width: 2),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: RepaintBoundary(
-                    key: _boundaryKey,
-                    child: InteractiveViewer(
-                      transformationController: _transformationController,
-                      minScale: 0.1,
-                      maxScale: 5.0,
-                      panEnabled: true,
-                      scaleEnabled: true,
-                      boundaryMargin: const EdgeInsets.all(double.infinity),
-                      constrained: false,
-                      onInteractionEnd: (details) {
-                        if (_imageSize == null) return;
-                        
-                        final matrix = _transformationController.value;
-                        double scale = matrix.getMaxScaleOnAxis();
-                        final translation = matrix.getTranslation();
-                        
-                        final scaleX = 280 / _imageSize!.width;
-                        final scaleY = 280 / _imageSize!.height;
-                        final minScale = scaleX > scaleY ? scaleX : scaleY;
-                        
-                        if (scale < minScale) scale = minScale;
-                        
-                        final scaledWidth = _imageSize!.width * scale;
-                        final scaledHeight = _imageSize!.height * scale;
-                        
-                        final maxDx = 0.0;
-                        final minDx = 280 - scaledWidth;
-                        final maxDy = 0.0;
-                        final minDy = 280 - scaledHeight;
-                        
-                        final clampedDx = translation.x.clamp(minDx, maxDx);
-                        final clampedDy = translation.y.clamp(minDy, maxDy);
-                        
-                        _transformationController.value = Matrix4.identity()
-                          ..translate(clampedDx, clampedDy)
-                          ..scale(scale);
-                      },
+                    width: 280,
+                    height: 280,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppTheme.primary, width: 2),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
                       child: _imageBytes != null
-                          ? Image.memory(_imageBytes!)
+                          ? Image.memory(_imageBytes!, fit: BoxFit.cover)
                           : _imagePath != null
-                              ? Image.file(File(_imagePath!))
-                              : Image.network(_imageUrl!),
+                              ? Image.file(File(_imagePath!), fit: BoxFit.cover)
+                              : Image.network(_imageUrl!, fit: BoxFit.cover),
                     ),
                   ),
-                ),
-              ),
-              Positioned(
-                top: 12,
-                right: 12,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: _imageActionButton(
+                      icon: Icons.close,
                       onTap: () => setState(() {
                         _imagePath = null;
                         _imageBytes = null;
                         _imageUrl = null;
                       }),
-                      borderRadius: BorderRadius.circular(20),
-                      child: const Padding(
-                        padding: EdgeInsets.all(8),
-                        child: Icon(Icons.close, color: Colors.black, size: 20),
-                      ),
                     ),
                   ),
-                ),
-              ),
-              Positioned(
-                bottom: 12,
-                left: 12,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
-                    borderRadius: BorderRadius.circular(20),
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: _imageActionButton(
+                      icon: Icons.crop,
+                      onTap: _recropImage,
+                    ),
                   ),
-                  child: const Text(
-                    'Pinch to zoom, drag to adjust',
-                    style: TextStyle(color: Colors.white, fontSize: 11),
-                  ),
-                ),
+                ],
               ),
-            ],
-          ),
-        ),
-      )
+            ),
+          )
         else
           Container(
             width: double.infinity,
@@ -607,50 +532,58 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     );
   }
 
+  Widget _imageActionButton({required IconData icon, required VoidCallback onTap}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 2))],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Icon(icon, color: Colors.black, size: 20),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: source);
-    if (pickedFile != null) {
-      final savedPath = await ImageStorageService.saveProductImage(File(pickedFile.path));
-      final bytes = await File(savedPath).readAsBytes();
-      setState(() {
-        _imagePath = savedPath;
-        _imageBytes = bytes;
-        _imageSize = null;
-      });
-      _loadImageAndSetInitialScale();
-    }
+    if (pickedFile == null) return;
+    final rawBytes = await pickedFile.readAsBytes();
+    await _openCropper(rawBytes);
   }
 
-  Future<void> _loadImageAndSetInitialScale() async {
-    if (_imageBytes == null && _imagePath == null) return;
-    
-    final imageProvider = _imageBytes != null
-        ? MemoryImage(_imageBytes!) as ImageProvider
-        : FileImage(File(_imagePath!));
-    final completer = imageProvider.resolve(const ImageConfiguration());
-    completer.addListener(ImageStreamListener((info, _) {
-      final imgWidth = info.image.width.toDouble();
-      final imgHeight = info.image.height.toDouble();
-      
-      // Calculate minimum scale to fill the 280x280 square
-      final scaleX = 280 / imgWidth;
-      final scaleY = 280 / imgHeight;
-      final minScale = scaleX > scaleY ? scaleX : scaleY;
-      
-      // Center the image
-      final scaledWidth = imgWidth * minScale;
-      final scaledHeight = imgHeight * minScale;
-      final dx = (280 - scaledWidth) / 2;
-      final dy = (280 - scaledHeight) / 2;
-      
-      setState(() {
-        _imageSize = Size(imgWidth, imgHeight);
-        _transformationController.value = Matrix4.identity()
-          ..translate(dx, dy)
-          ..scale(minScale);
-      });
-    }));
+  Future<void> _recropImage() async {
+    Uint8List? bytes;
+    if (_imageBytes != null) {
+      bytes = _imageBytes;
+    } else if (_imagePath != null) {
+      bytes = await File(_imagePath!).readAsBytes();
+    }
+    if (bytes == null) return;
+    await _openCropper(bytes);
+  }
+
+  Future<void> _openCropper(Uint8List imageBytes) async {
+    final cropped = await Navigator.push<Uint8List>(
+      context,
+      MaterialPageRoute(builder: (_) => _CropImageScreen(imageBytes: imageBytes)),
+    );
+    if (cropped == null) return;
+    final savedPath = await ImageStorageService.saveImageBytes(cropped);
+    setState(() {
+      _imagePath = savedPath;
+      _imageBytes = cropped;
+      _imageUrl = null;
+    });
   }
 
   Future<void> _save() async {
@@ -670,15 +603,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     final stockQty = int.tryParse(_stockCtrl.text) ?? 0;
     final threshold = int.tryParse(_thresholdCtrl.text) ?? 5;
 
-    String? finalImagePath = _imagePath;
-    Uint8List? finalImageBytes = _imageBytes;
-    if (_imagePath != null || _imageBytes != null) {
-      final captured = await _captureAdjustedImage();
-      if (captured != null) {
-        finalImagePath = captured;
-        finalImageBytes = await File(captured).readAsBytes();
-      }
-    }
+    final String? finalImagePath = _imagePath;
+    final Uint8List? finalImageBytes = _imageBytes;
 
     if (widget.product == null) {
       await ref.read(productsNotifierProvider.notifier).addProduct(
@@ -725,24 +651,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     }
   }
 
-  Future<String?> _captureAdjustedImage() async {
-    try {
-      final boundary = _boundaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-      if (boundary == null) return _imagePath;
-      
-      final image = await boundary.toImage(pixelRatio: 2.0);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) return _imagePath;
-      
-      final pngBytes = byteData.buffer.asUint8List();
-      final tempFile = File('${Directory.systemTemp.path}/adjusted_${DateTime.now().millisecondsSinceEpoch}.png');
-      await tempFile.writeAsBytes(pngBytes);
-      
-      return await ImageStorageService.saveProductImage(tempFile);
-    } catch (e) {
-      return _imagePath;
-    }
-  }
+
 
   String _formatDate(DateTime date) {
     final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -787,7 +696,53 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     _costCtrl.dispose();
     _stockCtrl.dispose();
     _thresholdCtrl.dispose();
-    _transformationController.dispose();
     super.dispose();
+  }
+}
+
+class _CropImageScreen extends StatefulWidget {
+  final Uint8List imageBytes;
+  const _CropImageScreen({required this.imageBytes});
+
+  @override
+  State<_CropImageScreen> createState() => _CropImageScreenState();
+}
+
+class _CropImageScreenState extends State<_CropImageScreen> {
+  final _cropController = CropController();
+  bool _isCropping = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: const Text('Crop Image'),
+        actions: [
+          TextButton(
+            onPressed: _isCropping ? null : _crop,
+            child: const Text('Done', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+      body: _isCropping
+          ? const Center(child: CircularProgressIndicator(color: Colors.white))
+          : Crop(
+              image: widget.imageBytes,
+              controller: _cropController,
+              aspectRatio: 1,
+              withCircleUi: false,
+              onCropped: (croppedBytes) {
+                Navigator.pop(context, croppedBytes);
+              },
+            ),
+    );
+  }
+
+  void _crop() {
+    setState(() => _isCropping = true);
+    _cropController.crop();
   }
 }

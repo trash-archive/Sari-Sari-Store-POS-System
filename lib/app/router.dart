@@ -68,11 +68,7 @@ class _MainShellState extends State<MainShell> {
       onPopInvoked: (didPop) {
         if (!didPop && _selectedIndex != 0) {
           setState(() => _selectedIndex = 0);
-          _pageController.animateToPage(
-            0,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-          );
+          _pageController.jumpToPage(0);
         }
       },
       child: Scaffold(
@@ -95,11 +91,7 @@ class _MainShellState extends State<MainShell> {
             selectedIndex: _selectedIndex,
             onDestinationSelected: (i) {
               setState(() => _selectedIndex = i);
-              _pageController.animateToPage(
-                i,
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-              );
+              _pageController.jumpToPage(i);
               _preloadAdjacentPages(i);
             },
             backgroundColor: Colors.transparent,

@@ -63,28 +63,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             title: 'Features',
             icon: Icons.tune_outlined,
             iconColor: Colors.blue,
-            child: Column(
-              children: [
-                _buildSwitchTile(
-                  icon: Icons.money_off_outlined,
-                  title: 'Allow Overpayment',
-                  subtitle: 'Let balance go negative (advance payment)',
-                  value: settings.allowNegativeBalance,
-                  onChanged: (v) => ref
-                      .read(settingsNotifierProvider.notifier)
-                      .toggleNegativeBalance(v),
-                ),
-                Divider(height: 1, color: Colors.grey.shade200),
-                _buildSwitchTile(
-                  icon: Icons.camera_alt_outlined,
-                  title: 'Transaction Photos',
-                  subtitle: 'Capture photo during checkout',
-                  value: settings.enableTransactionPhotos,
-                  onChanged: (v) => ref
-                      .read(settingsNotifierProvider.notifier)
-                      .toggleTransactionPhotos(v),
-                ),
-              ],
+            child: _buildSwitchTile(
+              icon: Icons.camera_alt_outlined,
+              title: 'Transaction Photos',
+              subtitle: 'Capture photo during checkout',
+              value: settings.enableTransactionPhotos,
+              onChanged: (v) => ref
+                  .read(settingsNotifierProvider.notifier)
+                  .toggleTransactionPhotos(v),
             ),
           ),
 
@@ -548,6 +534,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     const SizedBox(height: 8),
                     TextField(
                       controller: nameCtrl,
+                      maxLength: 25,
                       decoration: InputDecoration(
                         hintText: 'Enter store name',
                         border: OutlineInputBorder(
