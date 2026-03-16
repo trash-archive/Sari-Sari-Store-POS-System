@@ -3,6 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/providers.dart';
 import '../../../app/theme.dart';
 import '../../../data/services/backup_service.dart';
+import '../../../features/auth/auth_provider.dart';
+import '../../../features/auth/ui/login_screen.dart';
+import '../../../features/auth/ui/account_screen.dart';
+import '../../../features/auth/ui/upgrade_screen.dart';
+import 'feedback_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -26,6 +31,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          // Cloud Account Card
+          _buildCloudAccountCard(context),
+
+          const SizedBox(height: 16),
+
           // Store Info Card
           _buildCard(
             title: 'Store Information',
@@ -53,28 +63,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             title: 'Features',
             icon: Icons.tune_outlined,
             iconColor: Colors.blue,
-            child: Column(
-              children: [
-                _buildSwitchTile(
-                  icon: Icons.money_off_outlined,
-                  title: 'Allow Overpayment',
-                  subtitle: 'Let balance go negative (advance payment)',
-                  value: settings.allowNegativeBalance,
-                  onChanged: (v) => ref
-                      .read(settingsNotifierProvider.notifier)
-                      .toggleNegativeBalance(v),
-                ),
-                Divider(height: 1, color: Colors.grey.shade200),
-                _buildSwitchTile(
-                  icon: Icons.camera_alt_outlined,
-                  title: 'Transaction Photos',
-                  subtitle: 'Capture photo during checkout',
-                  value: settings.enableTransactionPhotos,
-                  onChanged: (v) => ref
-                      .read(settingsNotifierProvider.notifier)
-                      .toggleTransactionPhotos(v),
-                ),
-              ],
+            child: _buildSwitchTile(
+              icon: Icons.camera_alt_outlined,
+              title: 'Transaction Photos',
+              subtitle: 'Capture photo during checkout',
+              value: settings.enableTransactionPhotos,
+              onChanged: (v) => ref
+                  .read(settingsNotifierProvider.notifier)
+                  .toggleTransactionPhotos(v),
             ),
           ),
 
@@ -116,6 +112,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           const SizedBox(height: 16),
 
+          // Support & Feedback Card
+          _buildCard(
+            title: 'Support & Feedback',
+            icon: Icons.support_agent_outlined,
+            iconColor: Colors.teal,
+            child: Column(
+              children: [
+                _buildActionTile(
+                  icon: Icons.feedback_outlined,
+                  iconColor: Colors.teal,
+                  title: 'Send Feedback',
+                  subtitle: 'Report bugs, request features, or share suggestions',
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const FeedbackScreen()),
+                  ),
+                ),
+                Divider(height: 1, color: Colors.grey.shade200),
+                _buildActionTile(
+                  icon: Icons.help_outline,
+                  iconColor: Colors.blue,
+                  title: 'Help & Support',
+                  subtitle: 'Get help with using the app',
+                  onTap: () => _showHelpDialog(context),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
           // About Card
           _buildCard(
             title: 'About',
@@ -140,6 +167,110 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           const SizedBox(height: 20),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCloudAccountCard(BuildContext context) {
+    final isLoggedIn = ref.watch(isLoggedInProvider);
+    final user = ref.watch(currentUserProvider);
+    final premiumAsync = ref.watch(isPremiumProvider);
+
+    // Determine destination on tap
+    Widget destination() {
+      if (!isLoggedIn) return const LoginScreen();
+      return premiumAsync.maybeWhen(
+        data: (isPremium) =>
+            isPremium ? const AccountScreen() : const UpgradeScreen(),
+        orElse: () => const AccountScreen(),
+      );
+    }
+
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => destination(),
+        ),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: isLoggedIn
+                ? [const Color(0xFF2D5F3F), const Color(0xFF4A8B5C)]
+                : [Colors.grey.shade700, Colors.grey.shade500],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: (isLoggedIn ? AppTheme.primary : Colors.grey)
+                  .withOpacity(0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                isLoggedIn
+                    ? Icons.cloud_done_outlined
+                    : Icons.cloud_off_outlined,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isLoggedIn ? 'Cloud Account' : 'Enable Cloud Sync',
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    isLoggedIn
+                        ? user?.email ?? ''
+                        : 'Login or register to back up your data',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withOpacity(0.85)),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (isLoggedIn) ...[
+                    const SizedBox(height: 4),
+                    premiumAsync.when(
+                      data: (isPremium) => Text(
+                        isPremium ? '✓ Premium · Sync Active' : 'Free · Sync Locked',
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.white.withOpacity(0.75)),
+                      ),
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right,
+                color: Colors.white.withOpacity(0.7), size: 20),
+          ],
+        ),
       ),
     );
   }
@@ -403,6 +534,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     const SizedBox(height: 8),
                     TextField(
                       controller: nameCtrl,
+                      maxLength: 25,
                       decoration: InputDecoration(
                         hintText: 'Enter store name',
                         border: OutlineInputBorder(
@@ -750,5 +882,132 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         );
       }
     }
+  }
+
+  void _showHelpDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          color: Colors.white,
+          constraints: const BoxConstraints(maxWidth: 400),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(Icons.help_outline, color: Colors.blue, size: 24),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Help & Support',
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    _buildHelpItem(
+                      icon: Icons.shopping_cart_outlined,
+                      title: 'Making Sales',
+                      description: 'Go to POS tab → Select products → Choose payment method',
+                    ),
+                    const SizedBox(height: 16),
+                    _buildHelpItem(
+                      icon: Icons.inventory_outlined,
+                      title: 'Managing Products',
+                      description: 'Products tab → Add/Edit products → Set prices & stock',
+                    ),
+                    const SizedBox(height: 16),
+                    _buildHelpItem(
+                      icon: Icons.people_outline,
+                      title: 'Customer Credit (Utang)',
+                      description: 'Utang tab → Add customers → Record payments',
+                    ),
+                    const SizedBox(height: 16),
+                    _buildHelpItem(
+                      icon: Icons.assessment_outlined,
+                      title: 'Viewing Reports',
+                      description: 'Reports tab → Select time period → View sales data',
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('Got it'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHelpItem({
+    required IconData icon,
+    required String title,
+    required String description,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(icon, size: 16, color: AppTheme.textSecondary),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                description,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }

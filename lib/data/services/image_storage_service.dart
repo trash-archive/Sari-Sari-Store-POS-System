@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:image_picker/image_picker.dart';
@@ -12,6 +13,17 @@ class ImageStorageService {
     final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
     final dest = p.join(imagesDir.path, fileName);
     await sourceFile.copy(dest);
+    return dest;
+  }
+
+  static Future<String> saveImageBytes(Uint8List bytes) async {
+    final dir = await getApplicationDocumentsDirectory();
+    final imagesDir = Directory(p.join(dir.path, 'product_images'));
+    await imagesDir.create(recursive: true);
+
+    final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+    final dest = p.join(imagesDir.path, fileName);
+    await File(dest).writeAsBytes(bytes);
     return dest;
   }
 

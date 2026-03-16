@@ -49,8 +49,9 @@ class InvoicesDao extends DatabaseAccessor<AppDatabase> with _$InvoicesDaoMixin 
     required Map<String, int> stockUpdates, // productId -> newQty
     String? customerId,
     int? customerBalanceIncrease,
+    Future<void> Function()? onComplete, // e.g. trigger background sync
   }) async {
-    return db.transaction(() async {
+    final invoice = await db.transaction(() async {
       // Get customer balance before update if needed
       Customer? customer;
       if (customerId != null) {
@@ -92,6 +93,11 @@ class InvoicesDao extends DatabaseAccessor<AppDatabase> with _$InvoicesDaoMixin 
 
       return invoice;
     });
+
+    // Fire-and-forget background sync after checkout
+    onComplete?.call();
+
+    return invoice;
   }
 
   Future<void> voidInvoice(String invoiceId) async {

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -630,12 +631,16 @@ class _ProductList extends ConsumerWidget {
                             child: SizedBox(
                               width: 72,
                               height: 72,
-                              child: p.imagePath != null
-                                  ? Image.file(File(p.imagePath!), fit: BoxFit.cover)
-                                  : Container(
-                                      color: const Color(0xFFF8F9FA),
-                                      child: Icon(Icons.inventory_2_outlined, color: Colors.grey[400], size: 36),
-                                    ),
+                              child: p.imageData != null
+                                  ? Image.memory(p.imageData!, fit: BoxFit.cover)
+                                  : p.imagePath != null
+                                      ? Image.file(File(p.imagePath!), fit: BoxFit.cover)
+                                      : p.imageUrl != null
+                                          ? Image.network(p.imageUrl!, fit: BoxFit.cover)
+                                          : Container(
+                                              color: const Color(0xFFF8F9FA),
+                                              child: Icon(Icons.inventory_2_outlined, color: Colors.grey[400], size: 36),
+                                            ),
                             ),
                           ),
                           const SizedBox(width: 14),
@@ -710,23 +715,26 @@ class _ProductList extends ConsumerWidget {
 
   IconData _getUnitIcon(String unit) {
     switch (unit.toLowerCase()) {
-      case 'pc':
-      case 'pack':
-        return Icons.inventory_2;
-      case 'box':
-        return Icons.inventory;
-      case 'bottle':
-        return Icons.local_drink;
-      case 'can':
-        return Icons.coffee;
+      case 'piece': return Icons.circle_outlined;
+      case 'pack': return Icons.inventory_2_outlined;
+      case 'sachet': return Icons.rectangle_outlined;
+      case 'box': return Icons.check_box_outline_blank;
+      case 'bottle': return Icons.water_drop_outlined;
+      case 'can': return Icons.coffee_outlined;
+      case 'jar': return Icons.local_drink_outlined;
+      case 'tube': return Icons.horizontal_rule;
+      case 'bar': return Icons.crop_din;
+      case 'roll': return Icons.rotate_right_outlined;
+      case 'loaf': return Icons.bakery_dining_outlined;
+      case 'bundle': return Icons.layers_outlined;
+      case 'tray': return Icons.grid_view_outlined;
+      case 'sack': return Icons.shopping_bag_outlined;
       case 'kg':
-      case 'g':
-        return Icons.scale;
+      case 'g': return Icons.monitor_weight_outlined;
       case 'l':
       case 'ml':
-        return Icons.water_drop;
-      default:
-        return Icons.inventory_2;
+      case 'gal': return Icons.water_outlined;
+      default: return Icons.straighten;
     }
   }
 }

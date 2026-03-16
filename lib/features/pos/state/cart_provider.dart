@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart' hide Column;
 import '../../../app/providers.dart';
+import '../../../app/sync_provider.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../data/db/app_database.dart';
 
@@ -175,6 +176,7 @@ class CartNotifier extends Notifier<CartState> {
       stockUpdates: stockUpdates,
       customerId: customerId,
       customerBalanceIncrease: customerBalanceIncrease,
+      onComplete: () => ref.read(syncNotifierProvider.notifier).syncQuiet(),
     );
 
     clear();

@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart' hide Column;
@@ -52,6 +53,8 @@ class ProductsNotifier extends Notifier<void> {
     int stockQty = 0,
     int lowStockThreshold = 5,
     String? imagePath,
+    Uint8List? imageData,
+    String? imageUrl,
   }) async {
     final id = _uuid.v4();
     await _db.productsDao.insertProduct(ProductsCompanion(
@@ -66,6 +69,8 @@ class ProductsNotifier extends Notifier<void> {
       stockQty: Value(stockQty),
       lowStockThreshold: Value(lowStockThreshold),
       imagePath: Value(imagePath),
+      imageData: Value(imageData),
+      imageUrl: Value(imageUrl),
     ));
   }
 
@@ -81,6 +86,8 @@ class ProductsNotifier extends Notifier<void> {
     int? stockQty,
     int? lowStockThreshold,
     String? imagePath,
+    Uint8List? imageData,
+    String? imageUrl,
   }) async {
     final product = await _db.productsDao.getProductById(id);
     if (product == null) return;
@@ -97,6 +104,8 @@ class ProductsNotifier extends Notifier<void> {
       stockQty: Value(stockQty ?? product.stockQty),
       lowStockThreshold: Value(lowStockThreshold ?? product.lowStockThreshold),
       imagePath: Value(imagePath),
+      imageData: Value(imageData),
+      imageUrl: Value(imageUrl),
       isActive: const Value(true),
       updatedAt: Value(DateTime.now()),
     ));

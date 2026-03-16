@@ -10,6 +10,8 @@ class InvoiceItems extends Table {
   IntColumn get priceSnapshotCents => integer()();
   IntColumn get qty => integer()();
   IntColumn get lineTotalCents => integer()();
+  TextColumn get syncId => text().nullable()();
+  BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};

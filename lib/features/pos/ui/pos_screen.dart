@@ -63,7 +63,14 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Sell Products', style: TextStyle(fontWeight: FontWeight.w600)),
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            ref.watch(settingsProvider).storeName,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ),
         actions: [
           if (cart.itemCount > 0)
             Padding(
@@ -587,19 +594,33 @@ class _ProductCard extends ConsumerWidget {
                   children: [
                     ClipRRect(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                      child: product.imagePath != null
-                          ? Image.file(
-                              File(product.imagePath!),
+                      child: product.imageData != null
+                          ? Image.memory(
+                              product.imageData!,
                               fit: BoxFit.cover,
                               width: double.infinity,
                               height: double.infinity,
                             )
-                          : Container(
-                              color: AppTheme.surface,
-                              width: double.infinity,
-                              alignment: Alignment.center,
-                              child: Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey.shade400),
-                            ),
+                          : product.imagePath != null
+                              ? Image.file(
+                                  File(product.imagePath!),
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                )
+                              : product.imageUrl != null
+                                  ? Image.network(
+                                      product.imageUrl!,
+                                      fit: BoxFit.cover,
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                    )
+                                  : Container(
+                                      color: AppTheme.surface,
+                                      width: double.infinity,
+                                      alignment: Alignment.center,
+                                      child: Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey.shade400),
+                                    ),
                     ),
                     if (outOfStock)
                       Positioned.fill(
@@ -1429,23 +1450,37 @@ class _CartItemTile extends ConsumerWidget {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: item.product.imagePath != null
-                  ? Image.file(
-                      File(item.product.imagePath!),
+              child: item.product.imageData != null
+                  ? Image.memory(
+                      item.product.imageData!,
                       fit: BoxFit.cover,
                       width: 60,
                       height: 60,
                     )
-                  : Container(
-                      color: AppTheme.surface,
-                      width: 60,
-                      height: 60,
-                      child: Icon(
-                        Icons.inventory_2_outlined,
-                        size: 24,
-                        color: Colors.grey.shade400,
-                      ),
-                    ),
+                  : item.product.imagePath != null
+                      ? Image.file(
+                          File(item.product.imagePath!),
+                          fit: BoxFit.cover,
+                          width: 60,
+                          height: 60,
+                        )
+                      : item.product.imageUrl != null
+                          ? Image.network(
+                              item.product.imageUrl!,
+                              fit: BoxFit.cover,
+                              width: 60,
+                              height: 60,
+                            )
+                          : Container(
+                              color: AppTheme.surface,
+                              width: 60,
+                              height: 60,
+                              child: Icon(
+                                Icons.inventory_2_outlined,
+                                size: 24,
+                                color: Colors.grey.shade400,
+                              ),
+                            ),
             ),
           ),
           const SizedBox(width: 12),
