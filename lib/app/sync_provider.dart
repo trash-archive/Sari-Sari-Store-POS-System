@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../app/providers.dart';
 import '../features/auth/auth_provider.dart';
 import '../data/services/sync/sync_service.dart';
+import '../core/utils/connectivity_provider.dart';
 
 export '../data/services/sync/sync_service.dart' show SyncResult;
 
@@ -18,7 +19,7 @@ final syncServiceProvider = Provider<SyncService?>((ref) {
 
 // ── Sync state ───────────────────────────────────────────────
 
-enum SyncStatus { idle, syncing, success, error }
+enum SyncStatus { idle, syncing, success, error, offline }
 
 class SyncState {
   final SyncStatus status;
@@ -36,13 +37,27 @@ class SyncState {
 class SyncNotifier extends StateNotifier<SyncState> {
   final Ref _ref;
 
-  SyncNotifier(this._ref) : super(const SyncState());
+  SyncNotifier(this._ref) : super(const SyncState()) {
+    // Auto-sync when connectivity is restored
+    _ref.listen<bool>(isOnlineProvider, (wasOnline, isOnline) {
+      if (isOnline && wasOnline == false) {
+        syncQuiet();
+      }
+    });
+  }
 
+  bool get _isOnline => _ref.read(isOnlineProvider);
+
+  /// Manual sync — shows offline status if no connection.
   Future<void> sync() async {
-    final service = _ref.read(syncServiceProvider);
-    if (service == null) return; // not logged in
+    if (!_isOnline) {
+      state = state.copyWith(status: SyncStatus.offline);
+      return;
+    }
 
-    // Check premium before syncing
+    final service = _ref.read(syncServiceProvider);
+    if (service == null) return;
+
     final isPremium = await _ref.read(isPremiumProvider.future);
     if (!isPremium) return;
 
@@ -54,12 +69,16 @@ class SyncNotifier extends StateNotifier<SyncState> {
     );
   }
 
-  /// Called silently after each transaction — no UI feedback needed.
+  /// Silent auto-sync after transactions — skips quietly when offline.
   Future<void> syncQuiet() async {
+    if (!_isOnline) return;
+
     final service = _ref.read(syncServiceProvider);
     if (service == null) return;
+
     final isPremium = await _ref.read(isPremiumProvider.future);
     if (!isPremium) return;
+
     await service.sync();
   }
 }

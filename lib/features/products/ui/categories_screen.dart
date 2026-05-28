@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/theme.dart';
 import '../../../app/providers.dart';
-import '../../../core/utils/currency.dart';
 import '../state/products_provider.dart';
 
 class CategoriesScreen extends ConsumerWidget {

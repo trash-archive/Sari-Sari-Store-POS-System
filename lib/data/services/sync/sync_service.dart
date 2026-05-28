@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:drift/drift.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
@@ -43,9 +42,15 @@ class SyncService {
   // ── Public entry point ───────────────────────────────────────
 
   Future<SyncResult> sync() async {
+    // Guard: do not attempt sync if no user is logged in
+    if (_client.auth.currentUser == null) {
+      return const SyncResult(error: 'Not logged in');
+    }
     try {
       int pushed = 0;
       int pulled = 0;
+
+      await _deduplicateLocal();
 
       final r1 = await _syncCategories();
       final r2 = await _syncProducts();
@@ -64,6 +69,47 @@ class SyncService {
     }
   }
 
+  // ── Deduplicate existing local rows ────────────────────────
+
+  Future<void> _deduplicateLocal() async {
+    // Remove duplicate products (same syncId, keep the one with lowest rowid)
+    await _db.customStatement(
+      'DELETE FROM products WHERE rowid NOT IN '
+      '(SELECT MIN(rowid) FROM products GROUP BY sync_id) '
+      'AND sync_id IS NOT NULL',
+    );
+    await _db.customStatement(
+      'DELETE FROM categories WHERE rowid NOT IN '
+      '(SELECT MIN(rowid) FROM categories GROUP BY sync_id) '
+      'AND sync_id IS NOT NULL',
+    );
+    await _db.customStatement(
+      'DELETE FROM customers WHERE rowid NOT IN '
+      '(SELECT MIN(rowid) FROM customers GROUP BY sync_id) '
+      'AND sync_id IS NOT NULL',
+    );
+    await _db.customStatement(
+      'DELETE FROM invoices WHERE rowid NOT IN '
+      '(SELECT MIN(rowid) FROM invoices GROUP BY sync_id) '
+      'AND sync_id IS NOT NULL',
+    );
+    await _db.customStatement(
+      'DELETE FROM invoice_items WHERE rowid NOT IN '
+      '(SELECT MIN(rowid) FROM invoice_items GROUP BY sync_id) '
+      'AND sync_id IS NOT NULL',
+    );
+    await _db.customStatement(
+      'DELETE FROM customer_payments WHERE rowid NOT IN '
+      '(SELECT MIN(rowid) FROM customer_payments GROUP BY sync_id) '
+      'AND sync_id IS NOT NULL',
+    );
+    await _db.customStatement(
+      'DELETE FROM stock_movements WHERE rowid NOT IN '
+      '(SELECT MIN(rowid) FROM stock_movements GROUP BY sync_id) '
+      'AND sync_id IS NOT NULL',
+    );
+  }
+
   // ── Categories ───────────────────────────────────────────────
 
   Future<(int, int)> _syncCategories() async {
@@ -80,11 +126,40 @@ class SyncService {
     }
 
     // 2. Push unsynced local records
+    // Fetch server categories once for name-match merging
+    final List<Map<String, dynamic>> serverCategories = await _client
+        .from('categories')
+        .select('sync_id, name, updated_at')
+        .eq('user_id', _userId);
+    final serverCatByName = {
+      for (final s in serverCategories)
+        (s['name'] as String).toLowerCase(): s,
+    };
+
     final unsynced = await (_db.select(_db.categories)
           ..where((t) => t.isSynced.equals(false)))
         .get();
 
-    for (final row in unsynced) {
+    for (var row in unsynced) {
+      // Name-match merge: adopt server syncId if same category name exists on server
+      final serverMatch = serverCatByName[row.name.toLowerCase()];
+      if (serverMatch != null) {
+        final serverSyncId = serverMatch['sync_id'] as String;
+        final serverUpdatedAt = DateTime.parse(serverMatch['updated_at'] as String);
+        if (row.syncId != serverSyncId) {
+          await (_db.update(_db.categories)..where((t) => t.id.equals(row.id)))
+              .write(CategoriesCompanion(syncId: Value(serverSyncId)));
+          row = (await (_db.select(_db.categories)
+                ..where((t) => t.id.equals(row.id)))
+              .getSingleOrNull()) ?? row;
+          if (serverUpdatedAt.isAfter(row.updatedAt)) {
+            await (_db.update(_db.categories)..where((t) => t.id.equals(row.id)))
+                .write(const CategoriesCompanion(isSynced: Value(true)));
+            continue;
+          }
+        }
+      }
+
       final syncId = row.syncId!;
       await _client.from('categories').upsert({
         'sync_id': syncId,
@@ -134,7 +209,7 @@ class SyncService {
           pulled++;
         } else {
           // New from server — insert locally
-          await _db.into(_db.categories).insertOnConflictUpdate(
+          await _db.into(_db.categories).insert(
             CategoriesCompanion(
               id: Value(_uuid.v4()),
               name: Value(s['name'] as String),
@@ -146,6 +221,7 @@ class SyncService {
                   : const Value(null),
               isSynced: const Value(true),
             ),
+            mode: InsertMode.insertOrIgnore,
           );
           pulled++;
         }
@@ -185,6 +261,16 @@ class SyncService {
       }
     }
 
+    // Fetch all server products once for name-match merging
+    final List<Map<String, dynamic>> serverProducts = await _client
+        .from('products')
+        .select('sync_id, name, updated_at')
+        .eq('user_id', _userId);
+    final serverByName = {
+      for (final s in serverProducts)
+        (s['name'] as String).toLowerCase(): s,
+    };
+
     // Push unsynced
     final unsynced = await (_db.select(_db.products)
           ..where((p) => p.isSynced.equals(false)))
@@ -203,7 +289,31 @@ class SyncService {
       for (final p in [...unsynced, ...needsImageUpload]) p.id: p,
     }.values.toList();
 
-    for (final row in toPush) {
+    for (var row in toPush) {
+      // ── Name-match merge: if server already has this product name, adopt its syncId
+      if (row.syncId == null || unsynced.any((u) => u.id == row.id)) {
+        final serverMatch = serverByName[row.name.toLowerCase()];
+        if (serverMatch != null) {
+          final serverSyncId = serverMatch['sync_id'] as String;
+          final serverUpdatedAt = DateTime.parse(serverMatch['updated_at'] as String);
+          // Only adopt server syncId if local record doesn't already have one
+          if (row.syncId == null || row.syncId != serverSyncId) {
+            await (_db.update(_db.products)..where((p) => p.id.equals(row.id)))
+                .write(ProductsCompanion(syncId: Value(serverSyncId)));
+            // Re-fetch updated row
+            row = (await (_db.select(_db.products)
+                  ..where((p) => p.id.equals(row.id)))
+                .getSingleOrNull()) ?? row;
+            // If server is newer, skip pushing — pull phase will update local
+            if (serverUpdatedAt.isAfter(row.updatedAt)) {
+              await (_db.update(_db.products)..where((p) => p.id.equals(row.id)))
+                  .write(const ProductsCompanion(isSynced: Value(true)));
+              continue;
+            }
+          }
+        }
+      }
+
       // Resolve category syncId
       final cat = await (_db.select(_db.categories)
             ..where((c) => c.id.equals(row.categoryId)))
@@ -268,37 +378,62 @@ class SyncService {
           .getSingleOrNull();
 
       if (localMatch == null) {
-        // Download image bytes from Storage URL if available
-        Uint8List? imageBytes;
-        if (serverImageUrl != null) {
-          imageBytes = await _downloadImageBytes(serverImageUrl);
-        }
+        // Check if a local product with the same name exists (no syncId yet)
+        final nameMatch = await (_db.select(_db.products)
+              ..where((p) =>
+                  p.name.equals(s['name'] as String) &
+                  p.syncId.isNull()))
+            .getSingleOrNull();
 
-        await _db.into(_db.products).insertOnConflictUpdate(
-          ProductsCompanion(
-            id: Value(_uuid.v4()),
+        if (nameMatch != null) {
+          // Merge: assign server syncId to existing local record
+          final useServerData = serverUpdatedAt.isAfter(nameMatch.updatedAt);
+          await (_db.update(_db.products)..where((p) => p.id.equals(nameMatch.id)))
+              .write(ProductsCompanion(
             syncId: Value(syncId),
-            categoryId: Value(localCategoryId),
-            name: Value(s['name'] as String),
-            description: Value(s['description'] as String?),
-            unit: Value(s['unit'] as String),
-            barcode: Value(s['barcode'] as String?),
-            priceCents: Value(s['price_cents'] as int),
-            costCents: Value(s['cost_cents'] as int?),
-            stockQty: Value(s['stock_qty'] as int),
-            lowStockThreshold: Value(s['low_stock_threshold'] as int),
-            imageUrl: Value(serverImageUrl),
-            imageData: Value(imageBytes),
-            isActive: Value(s['is_active'] as bool),
-            createdAt: Value(DateTime.parse(s['created_at'] as String)),
-            updatedAt: Value(serverUpdatedAt),
-            deletedAt: s['deleted_at'] != null
-                ? Value(DateTime.parse(s['deleted_at'] as String))
-                : const Value(null),
+            categoryId: useServerData ? Value(localCategoryId) : Value(nameMatch.categoryId),
+            name: useServerData ? Value(s['name'] as String) : Value(nameMatch.name),
+            priceCents: useServerData ? Value(s['price_cents'] as int) : Value(nameMatch.priceCents),
+            costCents: useServerData ? Value(s['cost_cents'] as int?) : Value(nameMatch.costCents),
+            stockQty: useServerData ? Value(s['stock_qty'] as int) : Value(nameMatch.stockQty),
+            updatedAt: useServerData ? Value(serverUpdatedAt) : Value(nameMatch.updatedAt),
             isSynced: const Value(true),
-          ),
-        );
-        pulled++;
+          ));
+          pulled++;
+        } else {
+          // Download image bytes from Storage URL if available
+          Uint8List? imageBytes;
+          if (serverImageUrl != null) {
+            imageBytes = await _downloadImageBytes(serverImageUrl);
+          }
+
+          await _db.into(_db.products).insert(
+            ProductsCompanion(
+              id: Value(_uuid.v4()),
+              syncId: Value(syncId),
+              categoryId: Value(localCategoryId),
+              name: Value(s['name'] as String),
+              description: Value(s['description'] as String?),
+              unit: Value(s['unit'] as String),
+              barcode: Value(s['barcode'] as String?),
+              priceCents: Value(s['price_cents'] as int),
+              costCents: Value(s['cost_cents'] as int?),
+              stockQty: Value(s['stock_qty'] as int),
+              lowStockThreshold: Value(s['low_stock_threshold'] as int),
+              imageUrl: Value(serverImageUrl),
+              imageData: Value(imageBytes),
+              isActive: Value(s['is_active'] as bool),
+              createdAt: Value(DateTime.parse(s['created_at'] as String)),
+              updatedAt: Value(serverUpdatedAt),
+              deletedAt: s['deleted_at'] != null
+                  ? Value(DateTime.parse(s['deleted_at'] as String))
+                  : const Value(null),
+              isSynced: const Value(true),
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
+          pulled++;
+        }
       } else if (serverUpdatedAt.isAfter(localMatch.updatedAt)) {
         // Download image bytes if URL changed
         Uint8List? imageBytes = localMatch.imageData;
@@ -409,7 +544,7 @@ class SyncService {
           .getSingleOrNull();
 
       if (localMatch == null) {
-        await _db.into(_db.customers).insertOnConflictUpdate(
+        await _db.into(_db.customers).insert(
           CustomersCompanion(
             id: Value(_uuid.v4()),
             syncId: Value(syncId),
@@ -425,6 +560,7 @@ class SyncService {
                 : const Value(null),
             isSynced: const Value(true),
           ),
+          mode: InsertMode.insertOrIgnore,
         );
         pulled++;
       } else if (serverUpdatedAt.isAfter(localMatch.updatedAt)) {
@@ -522,7 +658,7 @@ class SyncService {
           .getSingleOrNull();
 
       if (localMatch == null) {
-        await _db.into(_db.invoices).insertOnConflictUpdate(
+        await _db.into(_db.invoices).insert(
           InvoicesCompanion(
             id: Value(_uuid.v4()),
             syncId: Value(syncId),
@@ -545,6 +681,7 @@ class SyncService {
                 : const Value(null),
             isSynced: const Value(true),
           ),
+          mode: InsertMode.insertOrIgnore,
         );
         pulled++;
       } else if (serverUpdatedAt.isAfter(localMatch.updatedAt)) {
@@ -636,7 +773,7 @@ class SyncService {
         localProductId = product?.id ?? s['product_sync_id'] as String;
       }
 
-      await _db.into(_db.invoiceItems).insertOnConflictUpdate(
+      await _db.into(_db.invoiceItems).insert(
         InvoiceItemsCompanion(
           id: Value(_uuid.v4()),
           syncId: Value(syncId),
@@ -649,6 +786,7 @@ class SyncService {
           lineTotalCents: Value(s['line_total_cents'] as int),
           isSynced: const Value(true),
         ),
+        mode: InsertMode.insertOrIgnore,
       );
       pulled++;
     }
@@ -729,7 +867,7 @@ class SyncService {
         localInvoiceId = inv?.id;
       }
 
-      await _db.into(_db.customerPayments).insertOnConflictUpdate(
+      await _db.into(_db.customerPayments).insert(
         CustomerPaymentsCompanion(
           id: Value(_uuid.v4()),
           syncId: Value(syncId),
@@ -740,6 +878,7 @@ class SyncService {
           createdAt: Value(DateTime.parse(s['created_at'] as String)),
           isSynced: const Value(true),
         ),
+        mode: InsertMode.insertOrIgnore,
       );
       pulled++;
     }
@@ -805,7 +944,7 @@ class SyncService {
           .getSingleOrNull();
       if (product == null) continue;
 
-      await _db.into(_db.stockMovements).insertOnConflictUpdate(
+      await _db.into(_db.stockMovements).insert(
         StockMovementsCompanion(
           id: Value(_uuid.v4()),
           syncId: Value(syncId),
@@ -817,6 +956,7 @@ class SyncService {
           createdAt: Value(DateTime.parse(s['created_at'] as String)),
           isSynced: const Value(true),
         ),
+        mode: InsertMode.insertOrIgnore,
       );
       pulled++;
     }

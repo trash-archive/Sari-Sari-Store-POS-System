@@ -91,7 +91,6 @@ class _UtangScreenState extends ConsumerState<UtangScreen> {
             loading: () => const SizedBox(),
             error: (_, __) => const SizedBox(),
             data: (customers) {
-              final withBalance = customers.where((c) => c.balanceCents > 0).length;
               final total = customers.fold(0, (s, c) => s + c.balanceCents);
               return Container(
                 width: double.infinity,
@@ -250,7 +249,6 @@ class _UtangScreenState extends ConsumerState<UtangScreen> {
                         itemCount: filtered.length,
                         itemBuilder: (context, i) {
                           final c = filtered[i];
-                          final initial = c.name.isNotEmpty ? c.name[0].toUpperCase() : '?';
                           return Container(
                             margin: const EdgeInsets.only(bottom: 12),
                             decoration: BoxDecoration(

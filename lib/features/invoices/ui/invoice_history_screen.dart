@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:drift/drift.dart' hide Column;
 import '../../../core/utils/currency.dart';
 import '../../../core/utils/date_utils.dart';
 import '../../../app/providers.dart';
 import '../../../app/theme.dart';
-import '../../../data/db/app_database.dart';
 import '../../settings/ui/settings_screen.dart';
 import 'invoice_detail_screen.dart';
 

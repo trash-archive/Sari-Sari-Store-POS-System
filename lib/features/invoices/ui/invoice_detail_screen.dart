@@ -173,7 +173,7 @@ class InvoiceDetailScreen extends ConsumerWidget {
                             if (inv.notes != null && inv.notes!.isNotEmpty)
                               const SizedBox(height: 4),
                             if (inv.notes != null && inv.notes!.isNotEmpty)
-                              _ReceiptRow(inv.type == 'cash' ? 'Customer:' : 'Notes:', inv.notes!),
+                              _ReceiptRow(inv.type == 'cash' ? 'Notes:' : 'Notes:', inv.notes!),
                             
                             const SizedBox(height: 20),
                             
@@ -483,8 +483,7 @@ class _ReceiptRow extends StatelessWidget {
   final Color? valueColor;
   final bool bold;
   final double? fontSize;
-  final bool overflow;
-  const _ReceiptRow(this.label, this.value, {this.valueColor, this.bold = false, this.fontSize, this.overflow = false});
+  const _ReceiptRow(this.label, this.value, {this.valueColor, this.bold = false, this.fontSize});
 
   @override
   Widget build(BuildContext context) {
@@ -503,8 +502,6 @@ class _ReceiptRow extends StatelessWidget {
           child: Text(
             value,
             textAlign: TextAlign.right,
-            maxLines: overflow ? 1 : null,
-            overflow: overflow ? TextOverflow.ellipsis : null,
             style: TextStyle(
               fontSize: fontSize ?? 14,
               fontWeight: bold ? FontWeight.bold : FontWeight.w600,
