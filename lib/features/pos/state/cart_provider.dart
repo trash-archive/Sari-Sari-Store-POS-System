@@ -117,13 +117,11 @@ class CartNotifier extends Notifier<CartState> {
     // For partial payments, determine the invoice type and customer balance increase
     String invoiceType = type;
     int? customerBalanceIncrease;
-    int displayAmount = state.totalCents; // Amount to display in transaction history
-    
+
     if (isPartialPayment && customerId != null) {
       // For partial payments, keep as 'cash' but link to customer and add remaining balance
       invoiceType = 'cash';
       customerBalanceIncrease = state.totalCents - (cashReceivedCents ?? 0);
-      displayAmount = customerBalanceIncrease; // Show only the utang amount in history
     } else if (type == 'utang' && customerId != null) {
       customerBalanceIncrease = state.totalCents;
     }
@@ -138,7 +136,7 @@ class CartNotifier extends Notifier<CartState> {
       totalCents: Value(state.totalCents),
       cashReceivedCents: Value(cashReceivedCents),
       changeCents: Value(changeCents),
-      balanceBeforeCents: isPartialPayment && customerId != null ? Value(0) : const Value.absent(),
+      balanceBeforeCents: isPartialPayment && customerId != null ? const Value(0) : const Value.absent(),
       balanceAfterCents: isPartialPayment && customerId != null ? Value(customerBalanceIncrease) : const Value.absent(),
       notes: Value(notes),
       photoPath: Value(photoPath),

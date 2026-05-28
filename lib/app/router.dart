@@ -4,7 +4,6 @@ import 'package:tindako/features/products/ui/products_screen.dart';
 import 'package:tindako/features/invoices/ui/invoice_history_screen.dart';
 import 'package:tindako/features/utang/ui/utang_screen.dart';
 import 'package:tindako/features/reports/ui/reports_screen.dart';
-import 'package:tindako/features/settings/ui/settings_screen.dart';
 import 'package:tindako/core/widgets/lazy_page_wrapper.dart';
 import 'package:tindako/core/widgets/skeleton_screens.dart';
 

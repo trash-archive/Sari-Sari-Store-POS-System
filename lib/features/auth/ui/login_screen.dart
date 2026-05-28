@@ -199,20 +199,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
     ));
   }
-
-  void _showSuccess(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Row(children: [
-        const Icon(Icons.check_circle_outline, color: Colors.white, size: 18),
-        const SizedBox(width: 10),
-        Expanded(child: Text(msg)),
-      ]),
-      backgroundColor: AppTheme.primary,
-      behavior: SnackBarBehavior.floating,
-      duration: const Duration(seconds: 5),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-    ));
-  }
 }
 
 // ── Login Tab ────────────────────────────────────────────────

@@ -59,12 +59,6 @@ class AppDatabase extends _$AppDatabase {
       if (from < 3) {
         await m.addColumn(customerPayments, customerPayments.invoiceId);
       }
-      if (from < 5) {
-        await m.addColumn(products, products.imageData);
-      }
-      if (from < 6) {
-        await m.addColumn(products, products.imageUrl);
-      }
       if (from < 4) {
         final nowUs = DateTime.now().microsecondsSinceEpoch;
         // Categories
@@ -97,6 +91,12 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(stockMovements, stockMovements.syncId);
         await m.addColumn(stockMovements, stockMovements.isSynced);
       }
+      if (from < 5) {
+        await m.addColumn(products, products.imageData);
+      }
+      if (from < 6) {
+        await m.addColumn(products, products.imageUrl);
+      }
     },
   );
 
@@ -111,142 +111,6 @@ class AppDatabase extends _$AppDatabase {
       await into(categories).insert(CategoriesCompanion(
         id: Value(id),
         name: Value(name),
-      ));
-    }
-  }
-
-  Future<void> _seedProducts() async {
-    final cats = await select(categories).get();
-    final catMap = {for (var c in cats) c.name: c.id};
-
-    final sampleProducts = [
-      // Beverages
-      {'name': 'Coca-Cola 330ml', 'price': 2500, 'stock': 50, 'category': 'Beverages', 'unit': 'bottle'},
-      {'name': 'Sprite 330ml', 'price': 2500, 'stock': 45, 'category': 'Beverages', 'unit': 'bottle'},
-      {'name': 'Royal 330ml', 'price': 2500, 'stock': 40, 'category': 'Beverages', 'unit': 'bottle'},
-      {'name': 'C2 Green Tea', 'price': 2000, 'stock': 30, 'category': 'Beverages', 'unit': 'bottle'},
-      {'name': 'Zesto Orange', 'price': 1500, 'stock': 25, 'category': 'Beverages', 'unit': 'bottle'},
-      
-      // Snacks
-      {'name': 'Chippy BBQ', 'price': 1000, 'stock': 60, 'category': 'Snacks', 'unit': 'pack'},
-      {'name': 'Piattos Cheese', 'price': 1200, 'stock': 55, 'category': 'Snacks', 'unit': 'pack'},
-      {'name': 'Nova Multigrain', 'price': 800, 'stock': 70, 'category': 'Snacks', 'unit': 'pack'},
-      {'name': 'Richeese Nabati', 'price': 500, 'stock': 80, 'category': 'Snacks', 'unit': 'pack'},
-      {'name': 'Boy Bawang', 'price': 600, 'stock': 65, 'category': 'Snacks', 'unit': 'pack'},
-      
-      // Canned Goods
-      {'name': 'Century Tuna Flakes', 'price': 3500, 'stock': 35, 'category': 'Canned Goods', 'unit': 'can'},
-      {'name': 'Ligo Sardines', 'price': 2800, 'stock': 40, 'category': 'Canned Goods', 'unit': 'can'},
-      {'name': 'CDO Corned Beef', 'price': 4500, 'stock': 25, 'category': 'Canned Goods', 'unit': 'can'},
-      {'name': 'Argentina Corned Beef', 'price': 3800, 'stock': 30, 'category': 'Canned Goods', 'unit': 'can'},
-      
-      // Personal Care
-      {'name': 'Safeguard Soap', 'price': 2200, 'stock': 45, 'category': 'Personal Care', 'unit': 'bar'},
-      {'name': 'Colgate Toothpaste', 'price': 3500, 'stock': 20, 'category': 'Personal Care', 'unit': 'tube'},
-      {'name': 'Head & Shoulders', 'price': 1500, 'stock': 15, 'category': 'Personal Care', 'unit': 'sachet'},
-      {'name': 'Close Up Toothpaste', 'price': 3200, 'stock': 18, 'category': 'Personal Care', 'unit': 'tube'},
-      
-      // Condiments
-      {'name': 'Silver Swan Soy Sauce', 'price': 2800, 'stock': 25, 'category': 'Condiments', 'unit': 'bottle'},
-      {'name': 'Datu Puti Vinegar', 'price': 2500, 'stock': 30, 'category': 'Condiments', 'unit': 'bottle'},
-      {'name': 'UFC Banana Catsup', 'price': 3200, 'stock': 20, 'category': 'Condiments', 'unit': 'bottle'},
-      {'name': 'Maggi Magic Sarap', 'price': 800, 'stock': 50, 'category': 'Condiments', 'unit': 'sachet'},
-      
-      // Dairy
-      {'name': 'Alaska Milk', 'price': 4500, 'stock': 15, 'category': 'Dairy', 'unit': 'can'},
-      {'name': 'Bear Brand Milk', 'price': 2200, 'stock': 25, 'category': 'Dairy', 'unit': 'can'},
-      {'name': 'Eden Cheese', 'price': 8500, 'stock': 10, 'category': 'Dairy', 'unit': 'pack'},
-      
-      // Bread & Bakery
-      {'name': 'Gardenia Bread', 'price': 5500, 'stock': 12, 'category': 'Bread & Bakery', 'unit': 'loaf'},
-      {'name': 'Pandesal', 'price': 300, 'stock': 50, 'category': 'Bread & Bakery', 'unit': 'piece'},
-      {'name': 'Skyflakes Crackers', 'price': 2800, 'stock': 20, 'category': 'Bread & Bakery', 'unit': 'pack'},
-      
-      // Others
-      {'name': 'Lucky Me Pancit Canton', 'price': 1200, 'stock': 100, 'category': 'Others', 'unit': 'pack'},
-      {'name': 'Rice (Bigas)', 'price': 5500, 'stock': 8, 'category': 'Others', 'unit': 'kg'},
-      {'name': 'Eggs', 'price': 800, 'stock': 60, 'category': 'Others', 'unit': 'piece'},
-      {'name': 'Cooking Oil', 'price': 12000, 'stock': 5, 'category': 'Others', 'unit': 'bottle'},
-    ];
-
-    for (final product in sampleProducts) {
-      final id = DateTime.now().microsecondsSinceEpoch.toString() + product['name'].hashCode.toString();
-      await into(products).insert(ProductsCompanion(
-        id: Value(id),
-        name: Value(product['name'] as String),
-        priceCents: Value(product['price'] as int),
-        stockQty: Value(product['stock'] as int),
-        categoryId: Value(catMap[product['category']]!),
-        unit: Value(product['unit'] as String),
-        lowStockThreshold: const Value(5),
-      ));
-    }
-  }
-
-  Future<void> addSampleProducts() async {
-    final cats = await select(categories).get();
-    final catMap = {for (var c in cats) c.name: c.id};
-
-    final sampleProducts = [
-      // Beverages
-      {'name': 'Coca-Cola 330ml', 'price': 2500, 'stock': 50, 'category': 'Beverages', 'unit': 'bottle'},
-      {'name': 'Sprite 330ml', 'price': 2500, 'stock': 45, 'category': 'Beverages', 'unit': 'bottle'},
-      {'name': 'Royal 330ml', 'price': 2500, 'stock': 40, 'category': 'Beverages', 'unit': 'bottle'},
-      {'name': 'C2 Green Tea', 'price': 2000, 'stock': 30, 'category': 'Beverages', 'unit': 'bottle'},
-      {'name': 'Zesto Orange', 'price': 1500, 'stock': 25, 'category': 'Beverages', 'unit': 'bottle'},
-      
-      // Snacks
-      {'name': 'Chippy BBQ', 'price': 1000, 'stock': 60, 'category': 'Snacks', 'unit': 'pack'},
-      {'name': 'Piattos Cheese', 'price': 1200, 'stock': 55, 'category': 'Snacks', 'unit': 'pack'},
-      {'name': 'Nova Multigrain', 'price': 800, 'stock': 70, 'category': 'Snacks', 'unit': 'pack'},
-      {'name': 'Richeese Nabati', 'price': 500, 'stock': 80, 'category': 'Snacks', 'unit': 'pack'},
-      {'name': 'Boy Bawang', 'price': 600, 'stock': 65, 'category': 'Snacks', 'unit': 'pack'},
-      
-      // Canned Goods
-      {'name': 'Century Tuna Flakes', 'price': 3500, 'stock': 35, 'category': 'Canned Goods', 'unit': 'can'},
-      {'name': 'Ligo Sardines', 'price': 2800, 'stock': 40, 'category': 'Canned Goods', 'unit': 'can'},
-      {'name': 'CDO Corned Beef', 'price': 4500, 'stock': 25, 'category': 'Canned Goods', 'unit': 'can'},
-      {'name': 'Argentina Corned Beef', 'price': 3800, 'stock': 30, 'category': 'Canned Goods', 'unit': 'can'},
-      
-      // Personal Care
-      {'name': 'Safeguard Soap', 'price': 2200, 'stock': 45, 'category': 'Personal Care', 'unit': 'bar'},
-      {'name': 'Colgate Toothpaste', 'price': 3500, 'stock': 20, 'category': 'Personal Care', 'unit': 'tube'},
-      {'name': 'Head & Shoulders', 'price': 1500, 'stock': 15, 'category': 'Personal Care', 'unit': 'sachet'},
-      {'name': 'Close Up Toothpaste', 'price': 3200, 'stock': 18, 'category': 'Personal Care', 'unit': 'tube'},
-      
-      // Condiments
-      {'name': 'Silver Swan Soy Sauce', 'price': 2800, 'stock': 25, 'category': 'Condiments', 'unit': 'bottle'},
-      {'name': 'Datu Puti Vinegar', 'price': 2500, 'stock': 30, 'category': 'Condiments', 'unit': 'bottle'},
-      {'name': 'UFC Banana Catsup', 'price': 3200, 'stock': 20, 'category': 'Condiments', 'unit': 'bottle'},
-      {'name': 'Maggi Magic Sarap', 'price': 800, 'stock': 50, 'category': 'Condiments', 'unit': 'sachet'},
-      
-      // Dairy
-      {'name': 'Alaska Milk', 'price': 4500, 'stock': 15, 'category': 'Dairy', 'unit': 'can'},
-      {'name': 'Bear Brand Milk', 'price': 2200, 'stock': 25, 'category': 'Dairy', 'unit': 'can'},
-      {'name': 'Eden Cheese', 'price': 8500, 'stock': 10, 'category': 'Dairy', 'unit': 'pack'},
-      
-      // Bread & Bakery
-      {'name': 'Gardenia Bread', 'price': 5500, 'stock': 12, 'category': 'Bread & Bakery', 'unit': 'loaf'},
-      {'name': 'Pandesal', 'price': 300, 'stock': 50, 'category': 'Bread & Bakery', 'unit': 'piece'},
-      {'name': 'Skyflakes Crackers', 'price': 2800, 'stock': 20, 'category': 'Bread & Bakery', 'unit': 'pack'},
-      
-      // Others
-      {'name': 'Lucky Me Pancit Canton', 'price': 1200, 'stock': 100, 'category': 'Others', 'unit': 'pack'},
-      {'name': 'Rice (Bigas)', 'price': 5500, 'stock': 8, 'category': 'Others', 'unit': 'kg'},
-      {'name': 'Eggs', 'price': 800, 'stock': 60, 'category': 'Others', 'unit': 'piece'},
-      {'name': 'Cooking Oil', 'price': 12000, 'stock': 5, 'category': 'Others', 'unit': 'bottle'},
-    ];
-
-    for (final product in sampleProducts) {
-      final id = DateTime.now().microsecondsSinceEpoch.toString() + product['name'].hashCode.toString();
-      await into(products).insert(ProductsCompanion(
-        id: Value(id),
-        name: Value(product['name'] as String),
-        priceCents: Value(product['price'] as int),
-        stockQty: Value(product['stock'] as int),
-        categoryId: Value(catMap[product['category']]!),
-        unit: Value(product['unit'] as String),
-        lowStockThreshold: const Value(5),
       ));
     }
   }

@@ -1,10 +1,8 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-import '../../../app/providers.dart';
 import '../../../core/utils/currency.dart';
 import '../../../data/db/app_database.dart';
 import '../../settings/ui/settings_screen.dart';
@@ -560,7 +558,6 @@ class _ProductList extends ConsumerWidget {
       itemBuilder: (context, index) {
         final p = products[index];
         final isOut = p.stockQty == 0;
-        final isLow = p.stockQty <= p.lowStockThreshold;
 
         return Container(
           margin: const EdgeInsets.only(bottom: 12),

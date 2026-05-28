@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:drift/drift.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
@@ -43,6 +42,10 @@ class SyncService {
   // ── Public entry point ───────────────────────────────────────
 
   Future<SyncResult> sync() async {
+    // Guard: do not attempt sync if no user is logged in
+    if (_client.auth.currentUser == null) {
+      return const SyncResult(error: 'Not logged in');
+    }
     try {
       int pushed = 0;
       int pulled = 0;

@@ -1,7 +1,10 @@
 import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
 import '../app_database.dart';
 
 part 'invoices_dao.g.dart';
+
+const _uuid = Uuid();
 
 @DriftAccessor(tables: [Invoices, InvoiceItems, StockMovements, Customers])
 class InvoicesDao extends DatabaseAccessor<AppDatabase> with _$InvoicesDaoMixin {
@@ -116,7 +119,7 @@ class InvoicesDao extends DatabaseAccessor<AppDatabase> with _$InvoicesDaoMixin 
             .write(ProductsCompanion(stockQty: Value(product.stockQty + item.qty)));
 
           await into(db.stockMovements).insert(StockMovementsCompanion(
-            id: Value(DateTime.now().millisecondsSinceEpoch.toString()),
+            id: Value(_uuid.v4()),
             productId: Value(item.productId),
             changeQty: Value(item.qty),
             reason: const Value('void'),

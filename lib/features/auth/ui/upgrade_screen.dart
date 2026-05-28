@@ -6,7 +6,7 @@ import '../auth_provider.dart';
 
 // ── Contact details — update these before release ────────────
 const _devEmail = 'htordios@gmail.com';
-const _devWhatsApp = '+639XXXXXXXXX'; // replace with your number
+const _devWhatsApp = '+639XXXXXXXXX'; // TODO: replace with your actual WhatsApp number before release
 const _premiumPrice = '₱299'; // one-time payment placeholder
 // ─────────────────────────────────────────────────────────────
 

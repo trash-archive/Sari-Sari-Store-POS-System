@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:drift/drift.dart' hide Column;
 import 'dart:io';
 import '../../../app/providers.dart';
 import '../../../app/theme.dart';
@@ -1399,7 +1398,6 @@ class _CartItemTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notifier = ref.read(cartProvider.notifier);
-    final canIncrease = item.qty < item.product.stockQty;
     
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
