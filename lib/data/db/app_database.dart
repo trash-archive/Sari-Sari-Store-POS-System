@@ -50,7 +50,6 @@ class AppDatabase extends _$AppDatabase {
     onCreate: (m) async {
       await m.createAll();
       await _seedCategories();
-      await _seedProducts();
     },
     onUpgrade: (m, from, to) async {
       if (from < 2) {
@@ -60,11 +59,11 @@ class AppDatabase extends _$AppDatabase {
       if (from < 3) {
         await m.addColumn(customerPayments, customerPayments.invoiceId);
       }
-      if (from < 6) {
-        await m.addColumn(products, products.imageUrl);
-      }
       if (from < 5) {
         await m.addColumn(products, products.imageData);
+      }
+      if (from < 6) {
+        await m.addColumn(products, products.imageUrl);
       }
       if (from < 4) {
         final nowUs = DateTime.now().microsecondsSinceEpoch;
@@ -250,6 +249,17 @@ class AppDatabase extends _$AppDatabase {
         lowStockThreshold: const Value(5),
       ));
     }
+  }
+
+  /// Resets all sync state so data is re-synced for a new user account.
+  Future<void> clearSyncState() async {
+    await customStatement('UPDATE categories SET sync_id = NULL, is_synced = 0');
+    await customStatement('UPDATE products SET sync_id = NULL, is_synced = 0');
+    await customStatement('UPDATE customers SET sync_id = NULL, is_synced = 0');
+    await customStatement('UPDATE invoices SET sync_id = NULL, is_synced = 0');
+    await customStatement('UPDATE invoice_items SET sync_id = NULL, is_synced = 0');
+    await customStatement('UPDATE customer_payments SET sync_id = NULL, is_synced = 0');
+    await customStatement('UPDATE stock_movements SET sync_id = NULL, is_synced = 0');
   }
 
   static QueryExecutor _openConnection() {

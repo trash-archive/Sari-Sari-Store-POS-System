@@ -163,6 +163,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                     return _ProductGrid(
                       products: filtered,
                       scrollController: _scrollController,
+                      hasNoProductsAtAll: products.isEmpty,
                     );
                   },
                   loading: () => const Center(child: CircularProgressIndicator()),
@@ -459,7 +460,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 class _ProductGrid extends ConsumerWidget {
   final List<Product> products;
   final ScrollController scrollController;
-  const _ProductGrid({required this.products, required this.scrollController});
+  final bool hasNoProductsAtAll;
+  const _ProductGrid({required this.products, required this.scrollController, required this.hasNoProductsAtAll});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -474,52 +476,21 @@ class _ProductGrid extends ConsumerWidget {
               'No products found',
               style: TextStyle(color: AppTheme.textSecondary, fontSize: 16),
             ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ProductFormScreen()),
-                  ),
-                  icon: const Icon(Icons.add, size: 20),
-                  label: const Text('Add Product'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
+            if (hasNoProductsAtAll) ...[
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProductFormScreen()),
                 ),
-                const SizedBox(width: 12),
-                OutlinedButton.icon(
-                  onPressed: () async {
-                    await ref.read(databaseProvider).addSampleProducts();
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Row(
-                            children: [
-                              Icon(Icons.check_circle, color: Colors.white, size: 20),
-                              const SizedBox(width: 12),
-                              Text('Sample products added'),
-                            ],
-                          ),
-                          backgroundColor: Color(0xFF2E7D32),
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      );
-                    }
-                  },
-                  icon: const Icon(Icons.inventory, size: 20),
-                  label: const Text('Add Samples'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
+                icon: const Icon(Icons.add, size: 20),
+                label: const Text('Add Product'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-              ],
-            ),
+              ),
+            ],
           ],
         ),
       );

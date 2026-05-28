@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/theme.dart';
 import '../../../app/sync_provider.dart';
+import '../../../core/utils/connectivity_provider.dart';
 import '../auth_provider.dart';
 import 'upgrade_screen.dart';
 
@@ -114,8 +115,10 @@ class AccountScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                   if (isPremium) ...[
                     _SyncButton(syncState: syncState, ref: ref),
-                    // Last sync result
-                    if (syncState.lastResult != null) ...[
+                    if (syncState.status == SyncStatus.offline) ...[
+                      const SizedBox(height: 10),
+                      _OfflineBanner(),
+                    ] else if (syncState.lastResult != null) ...[
                       const SizedBox(height: 10),
                       _SyncResultRow(result: syncState.lastResult!),
                     ],
@@ -235,35 +238,66 @@ class AccountScreen extends ConsumerWidget {
 
 // ── Sync Now button ──────────────────────────────────────────
 
-class _SyncButton extends StatelessWidget {
+class _SyncButton extends ConsumerWidget {
   final SyncState syncState;
   final WidgetRef ref;
 
   const _SyncButton({required this.syncState, required this.ref});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef watchRef) {
     final isSyncing = syncState.status == SyncStatus.syncing;
+    final isOnline = watchRef.watch(isOnlineProvider);
 
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
-        onPressed: isSyncing
+        onPressed: (isSyncing || !isOnline)
             ? null
             : () => ref.read(syncNotifierProvider.notifier).sync(),
         icon: isSyncing
             ? const SizedBox(
                 width: 16,
                 height: 16,
-                child:
-                    CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-            : const Icon(Icons.sync, size: 18),
-        label: Text(isSyncing ? 'Syncing...' : 'Sync Now'),
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white))
+            : Icon(isOnline ? Icons.sync : Icons.cloud_off, size: 18),
+        label: Text(isSyncing
+            ? 'Syncing...'
+            : isOnline
+                ? 'Sync Now'
+                : 'No Internet'),
         style: ElevatedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 14),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
+      ),
+    );
+  }
+}
+
+class _OfflineBanner extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.orange.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.wifi_off, size: 16, color: Colors.orange.shade700),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'You\'re offline. Sync will resume automatically when connected.',
+              style: TextStyle(fontSize: 12, color: Colors.orange.shade700),
+            ),
+          ),
+        ],
       ),
     );
   }

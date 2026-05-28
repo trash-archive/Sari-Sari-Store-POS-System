@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../data/db/app_database.dart';
+import '../../app/providers.dart';
 
 // ignore: depend_on_referenced_packages
 export 'package:supabase_flutter/supabase_flutter.dart' show User, AuthState, AuthChangeEvent;
@@ -53,8 +55,9 @@ final isPremiumProvider = FutureProvider<bool>((ref) async {
 
 class AuthNotifier extends StateNotifier<AsyncValue<void>> {
   final SupabaseClient _client;
+  final AppDatabase _db;
 
-  AuthNotifier(this._client) : super(const AsyncValue.data(null));
+  AuthNotifier(this._client, this._db) : super(const AsyncValue.data(null));
 
   Future<String?> signUp({
     required String email,
@@ -83,8 +86,21 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
       void Function()? onSuccess}) async {
     state = const AsyncValue.loading();
     try {
-      await _client.auth.signInWithPassword(email: email, password: password);
+      final res = await _client.auth.signInWithPassword(email: email, password: password);
       state = const AsyncValue.data(null);
+
+      // If a different user is logging in, reset sync state so local data
+      // is treated as new/unsynced for this user's account.
+      final prefs = await SharedPreferences.getInstance();
+      final lastUserId = prefs.getString('last_user_id');
+      final newUserId = res.user?.id;
+      if (newUserId != null && lastUserId != null && lastUserId != newUserId) {
+        await _db.clearSyncState();
+      }
+      if (newUserId != null) {
+        await prefs.setString('last_user_id', newUserId);
+      }
+
       onSuccess?.call();
       return null;
     } on AuthException catch (e) {
@@ -101,7 +117,9 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
     if (user != null) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('is_premium_${user.id}');
+      await prefs.remove('last_user_id');
     }
+    await _db.clearSyncState();
     await _client.auth.signOut();
     state = const AsyncValue.data(null);
   }
@@ -109,5 +127,5 @@ class AuthNotifier extends StateNotifier<AsyncValue<void>> {
 
 final authNotifierProvider =
     StateNotifierProvider<AuthNotifier, AsyncValue<void>>((ref) {
-  return AuthNotifier(ref.watch(supabaseProvider));
+  return AuthNotifier(ref.watch(supabaseProvider), ref.watch(databaseProvider));
 });
